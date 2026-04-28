@@ -81,6 +81,9 @@ export const credentialsSchema: Record<string, FieldDef[]> = {
     { key: "page_access_token", label: "Page Access Token", type: "password", required: true, help: "Page-level token from Pancake dashboard → Page Settings" },
     { key: "webhook_secret", label: "Webhook Secret (Optional)", type: "password", help: "HMAC-SHA256 secret for webhook signature verification. Leave empty to skip verification." },
   ],
+  element: [
+    { key: "access_token", label: "Matrix Access Token", type: "password", required: true, placeholder: "mpt_... or syt_...", help: "Long-lived access token for the bot's Matrix user. From MAS or `curl /_matrix/client/v3/login`." },
+  ],
 };
 
 // --- Pancake platform options ---
@@ -233,6 +236,15 @@ export const configSchema: Record<string, FieldDef[]> = {
       help: "Never react to comments from these user IDs." },
     { key: "allow_from", label: "Allowed Users", type: "tags", help: "Sender IDs to whitelist. Empty = accept all." },
     { key: "block_reply", label: "Block Reply", type: "select", options: blockReplyOptions, defaultValue: "inherit" },
+  ],
+  element: [
+    { key: "homeserver", label: "Matrix Homeserver", type: "text", required: true, placeholder: "https://matrix.example.com", help: "Homeserver base URL (Synapse / Dendrite / ESS)." },
+    { key: "user_id", label: "Matrix User ID", type: "text", required: true, placeholder: "@bot:example.com", help: "Full Matrix user ID for the bot account." },
+    { key: "outbound_enabled", label: "Outbound Enabled", type: "boolean", defaultValue: true, help: "Send agent replies to Matrix rooms." },
+    { key: "inbound_enabled", label: "Inbound Enabled", type: "boolean", defaultValue: true, help: "Receive Matrix room messages via /sync long-poll." },
+    { key: "auto_join_invites", label: "Auto-Join Invites", type: "boolean", defaultValue: true, help: "Automatically join rooms when invited.", showWhen: { key: "inbound_enabled", value: "true" } },
+    { key: "history_limit", label: "Group History Limit", type: "number", defaultValue: 50, help: "Max pending messages kept for context per room (0 = disabled)" },
+    { key: "allow_from", label: "Allowed Senders", type: "tags", help: "Matrix user IDs (@user:server) or room IDs (!room:server). Empty = accept all." },
   ],
 };
 

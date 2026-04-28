@@ -1,5 +1,6 @@
 export const CHANNEL_TYPES = [
   { value: "discord", label: "Discord" },
+  { value: "element", label: "Element (Matrix)" },
   { value: "facebook", label: "Facebook" },
   { value: "feishu", label: "Feishu / Lark" },
   { value: "pancake", label: "Pancake (pages.fm)" },
