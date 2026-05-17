@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Zap, Pencil, Trash2 } from "lucide-react";
+import { Zap, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +20,7 @@ interface SkillTableRowProps {
   toggling: string | null;
   onView: (name: string) => void;
   onEdit: (skill: SkillInfo) => void;
+  onManageGrants: (skill: SkillInfo) => void;
   onDelete: (skill: SkillInfo) => void;
   onToggle: (skill: SkillInfo, enabled: boolean) => void;
   onCycleVisibility: (skill: SkillInfo) => void;
@@ -30,7 +31,7 @@ interface SkillTableRowProps {
 /** Single row in the skills table with inline status, visibility, and action controls. */
 export function SkillTableRow({
   skill, tab, hasTenantScope, toggling,
-  onView, onEdit, onDelete, onToggle, onCycleVisibility,
+  onView, onEdit, onManageGrants, onDelete, onToggle, onCycleVisibility,
   onSetTenantConfig, onDeleteTenantConfig,
 }: SkillTableRowProps) {
   const { t } = useTranslation("skills");
@@ -63,6 +64,13 @@ export function SkillTableRow({
       </td>
       {tab === "custom" && (
         <td className="px-4 py-3 text-sm text-muted-foreground">{skill.author || "—"}</td>
+      )}
+      {tab === "custom" && (
+        <td className="px-4 py-3">
+          <span className="block max-w-[12rem] truncate font-mono text-xs text-muted-foreground">
+            {skill.owner_id || t("unknownOwner")}
+          </span>
+        </td>
       )}
       <td className="px-4 py-3">
         <div className="flex flex-col gap-1">
@@ -132,6 +140,11 @@ export function SkillTableRow({
               <Button variant="ghost" size="sm" onClick={() => onEdit(skill)} className="gap-1">
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
+              {!skill.is_system && (
+                <Button variant="ghost" size="sm" onClick={() => onManageGrants(skill)} className="gap-1" title={t("grants.manage")}>
+                  <Users className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {!skill.is_system && (
                 <Button
                   variant="ghost" size="sm"

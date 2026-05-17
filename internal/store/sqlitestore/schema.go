@@ -16,7 +16,7 @@ var schemaSQL string
 
 // SchemaVersion is the current SQLite schema version.
 // Bump this when adding new migration steps below.
-const SchemaVersion = 34
+const SchemaVersion = 35
 
 // migrations maps version → SQL to apply when upgrading FROM that version.
 // schema.sql always represents the LATEST full schema (for fresh DBs).
@@ -596,6 +596,9 @@ CREATE INDEX IF NOT EXISTS idx_ws_activity_retention   ON workstation_activity(c
 	// Version 33 → 34: per-agent ordered provider/model fallback config.
 	33: `ALTER TABLE agents ADD COLUMN model_fallback TEXT NOT NULL DEFAULT '{}';`,
 
+	// Version 34 → 35: agent skill grants can optionally allow skill management.
+	34: `ALTER TABLE skill_agent_grants ADD COLUMN can_manage INTEGER NOT NULL DEFAULT 0;`,
+
 	// Version 23 → 24: vault_documents scope/ownership consistency triggers.
 	// Mirrors PG migration 000055 CHECK constraint; SQLite cannot add CHECK via
 	// ALTER TABLE so we use BEFORE INSERT + BEFORE UPDATE triggers instead.
@@ -975,6 +978,8 @@ func idempotentColumnMigration(version int) (string, string, bool) {
 		return "webhooks", "encrypted_secret", true
 	case 33:
 		return "agents", "model_fallback", true
+	case 34:
+		return "skill_agent_grants", "can_manage", true
 	default:
 		return "", "", false
 	}

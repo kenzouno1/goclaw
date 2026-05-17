@@ -7,7 +7,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { toast } from "@/stores/use-toast-store";
 import i18next from "i18next";
 import { userFriendlyError } from "@/lib/error-utils";
-import type { SkillInfo, SkillFile, SkillVersions } from "@/types/skill";
+import type { SkillInfo, SkillFile, SkillVersions, SkillAgentGrant } from "@/types/skill";
 
 export type { SkillInfo, SkillFile, SkillVersions };
 
@@ -101,6 +101,34 @@ export function useSkills() {
         toast.error(i18next.t("skills:toast.deleteFailed"), userFriendlyError(err));
         throw err;
       }
+    },
+    [http, invalidate],
+  );
+
+  const listAgentGrants = useCallback(
+    async (id: string) => {
+      const res = await http.get<{ grants: SkillAgentGrant[] }>(`/v1/skills/${id}/grants/agent`);
+      return res.grants ?? [];
+    },
+    [http],
+  );
+
+  const grantSkillToAgent = useCallback(
+    async (id: string, agentId: string, version: number, canManage: boolean) => {
+      await http.post<{ ok: string }>(`/v1/skills/${id}/grants/agent`, {
+        agent_id: agentId,
+        version,
+        can_manage: canManage,
+      });
+      await invalidate();
+    },
+    [http, invalidate],
+  );
+
+  const revokeSkillFromAgent = useCallback(
+    async (id: string, agentId: string) => {
+      await http.delete<{ ok: string }>(`/v1/skills/${id}/grants/agent/${agentId}`);
+      await invalidate();
     },
     [http, invalidate],
   );
@@ -220,6 +248,7 @@ export function useSkills() {
   return {
     skills, loading, refresh: invalidate, getSkill,
     uploadSkill, updateSkill, deleteSkill,
+    listAgentGrants, grantSkillToAgent, revokeSkillFromAgent,
     getSkillVersions, getSkillFiles, getSkillFileContent, rescanDeps, installDeps, installSingleDep, toggleSkill,
     setTenantConfig, deleteTenantConfig,
   };

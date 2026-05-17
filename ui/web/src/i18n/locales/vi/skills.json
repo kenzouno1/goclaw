@@ -13,7 +13,8 @@
     "author": "Tác giả",
     "visibility": "Hiển thị",
     "status": "Trạng thái",
-    "actions": "Thao tác"
+    "actions": "Thao tác",
+    "owner": "Chủ sở hữu"
   },
   "noDescription": "Không có mô tả",
   "visibility": {
@@ -125,5 +126,23 @@
     "rescanUpdated": "Đã cập nhật {{count}} skill",
     "rescanNoChanges": "Tất cả skill đã cập nhật",
     "rescanFailed": "Không thể quét lại dependencies"
+  },
+  "owner": "Chủ sở hữu",
+  "unknownOwner": "Không rõ",
+  "grants": {
+    "title": "Quyền agent cho {{name}}",
+    "manage": "Quản lý quyền agent",
+    "current": "Grant agent hiện tại",
+    "none": "Chưa có grant agent.",
+    "add": "Thêm grant",
+    "update": "Cập nhật grant",
+    "grant": "Grant",
+    "save": "Lưu",
+    "selectAgent": "Chọn agent",
+    "allowManage": "Cho phép agent này sửa hoặc xóa skill",
+    "canManage": "Được sửa",
+    "loadFailed": "Không thể tải grant",
+    "saveFailed": "Không thể lưu grant",
+    "revokeFailed": "Không thể thu hồi grant"
   }
 }

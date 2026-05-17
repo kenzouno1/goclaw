@@ -11,11 +11,30 @@
     "description": "Description",
     "source": "Source",
     "author": "Author",
+    "owner": "Owner",
     "visibility": "Visibility",
     "status": "Status",
     "actions": "Actions"
   },
   "noDescription": "No description",
+  "owner": "Owner",
+  "unknownOwner": "Unknown",
+  "grants": {
+    "title": "Agent access for {{name}}",
+    "manage": "Manage agent access",
+    "current": "Current agent grants",
+    "none": "No agent grants yet.",
+    "add": "Add grant",
+    "update": "Update grant",
+    "grant": "Grant",
+    "save": "Save",
+    "selectAgent": "Select agent",
+    "allowManage": "Allow this agent to edit or delete the skill",
+    "canManage": "Can edit",
+    "loadFailed": "Failed to load grants",
+    "saveFailed": "Failed to save grant",
+    "revokeFailed": "Failed to revoke grant"
+  },
   "visibility": {
     "clickToCycle": "Click to change visibility"
   },

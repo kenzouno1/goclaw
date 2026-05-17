@@ -51,6 +51,29 @@ func isOwnerOfSkill(ctx context.Context, skills store.SkillManageStore, slug str
 	return ownerID == actorID || ownerID == userID || ownerID == senderID
 }
 
+func canManageSkill(ctx context.Context, skills store.SkillManageStore, info *store.SkillInfo) bool {
+	if isOwnerOfSkill(ctx, skills, info.Slug) {
+		return true
+	}
+	if info.ID == "" {
+		return false
+	}
+	skillID, err := uuid.Parse(info.ID)
+	if err != nil {
+		return false
+	}
+	agentID := store.AgentIDFromContext(ctx)
+	if agentID == uuid.Nil {
+		return false
+	}
+	ok, err := skills.AgentCanManageSkill(ctx, skillID, agentID)
+	if err != nil {
+		slog.Warn("skill_manage: manage grant check failed", "skill", info.Slug, "agent_id", agentID, "error", err)
+		return false
+	}
+	return ok
+}
+
 // tenantSkillsDir returns the skills-store directory scoped to the calling agent's tenant.
 func (t *SkillManageTool) tenantSkillsDir(ctx context.Context) string {
 	tid := store.TenantIDFromContext(ctx)
@@ -211,7 +234,7 @@ func (t *SkillManageTool) executeCreate(ctx context.Context, args map[string]any
 	granted := false
 	agentID := store.AgentIDFromContext(ctx)
 	if agentID != uuid.Nil {
-		if err := t.skills.GrantToAgent(ctx, id, agentID, version, ownerID); err != nil {
+		if err := t.skills.GrantToAgent(ctx, id, agentID, version, ownerID, true); err != nil {
 			slog.Warn("skill_manage: auto-grant failed", "error", err)
 		} else {
 			granted = true
@@ -278,7 +301,7 @@ func (t *SkillManageTool) executePatch(ctx context.Context, args map[string]any)
 	//     where DM owners got the raw channel sender)
 	// A DM user merged to "viettx" with Telegram ID "386246614" matches all
 	// three of their skills regardless of when they were created.
-	if !isOwnerOfSkill(ctx, t.skills, slug) {
+	if !canManageSkill(ctx, t.skills, info) {
 		return ErrorResult(fmt.Sprintf("cannot manage skill %q: you are not the owner", slug))
 	}
 
@@ -392,7 +415,7 @@ func (t *SkillManageTool) executeDelete(ctx context.Context, args map[string]any
 
 	// Ownership check: only the skill owner can delete.
 	// Same three-identity match as the patch flow above (#915).
-	if !isOwnerOfSkill(ctx, t.skills, slug) {
+	if !canManageSkill(ctx, t.skills, info) {
 		return ErrorResult(fmt.Sprintf("cannot manage skill %q: you are not the owner", slug))
 	}
 

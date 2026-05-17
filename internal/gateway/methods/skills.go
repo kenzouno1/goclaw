@@ -17,7 +17,7 @@ import (
 
 // skillOwnerGetter is an optional interface for stores that can return a skill's owner ID.
 type skillOwnerGetter interface {
-	GetSkillOwnerID(id uuid.UUID) (string, bool)
+	GetSkillOwnerID(ctx context.Context, id uuid.UUID) (string, bool)
 }
 
 // SkillsMethods handles skills.list, skills.get, skills.update.
@@ -55,6 +55,9 @@ func (m *SkillsMethods) handleList(ctx context.Context, client *gateway.Client, 
 			"version":     s.Version,
 			"is_system":   s.IsSystem,
 			"enabled":     s.Enabled,
+		}
+		if s.OwnerID != "" {
+			entry["owner_id"] = s.OwnerID
 		}
 		if s.ID != "" {
 			entry["id"] = s.ID
@@ -146,6 +149,9 @@ func (m *SkillsMethods) handleGet(ctx context.Context, client *gateway.Client, r
 	if info.Visibility != "" {
 		resp["visibility"] = info.Visibility
 	}
+	if info.OwnerID != "" {
+		resp["owner_id"] = info.OwnerID
+	}
 	if len(info.Tags) > 0 {
 		resp["tags"] = info.Tags
 	}
@@ -219,7 +225,7 @@ func (m *SkillsMethods) handleUpdate(ctx context.Context, client *gateway.Client
 			client.SendResponse(protocol.NewErrorResponse(req.ID, protocol.ErrUnauthorized, i18n.T(locale, i18n.MsgPermissionDenied, "skills.update")))
 			return
 		}
-		if ownerID, found := ownerGetter.GetSkillOwnerID(skillID); found && ownerID != client.UserID() {
+		if ownerID, found := ownerGetter.GetSkillOwnerID(ctx, skillID); found && ownerID != client.UserID() {
 			client.SendResponse(protocol.NewErrorResponse(req.ID, protocol.ErrUnauthorized, i18n.T(locale, i18n.MsgPermissionDenied, "skills.update")))
 			return
 		}

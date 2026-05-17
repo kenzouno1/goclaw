@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,12 +16,11 @@ import (
 // Auto-promotes visibility from 'private' to 'internal' so the skill
 // becomes accessible via ListAccessible for granted agents.
 // Validates the agent belongs to the requesting tenant (prevents cross-tenant grant injection).
-func (s *PGSkillStore) GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string) error {
+func (s *PGSkillStore) GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string, canManage ...bool) error {
 	if err := store.ValidateUserID(grantedBy); err != nil {
 		return err
 	}
 	tid := tenantIDForInsert(ctx)
-
 	// Verify agent belongs to the requesting tenant.
 	var agentTenantID uuid.UUID
 	if err := s.db.QueryRowContext(ctx,
@@ -32,12 +32,28 @@ func (s *PGSkillStore) GrantToAgent(ctx context.Context, skillID, agentID uuid.U
 		return fmt.Errorf("agent not found")
 	}
 
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, created_at, tenant_id)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
-		 ON CONFLICT (skill_id, agent_id) DO UPDATE SET pinned_version = EXCLUDED.pinned_version`,
-		store.GenNewID(), skillID, agentID, version, grantedBy, time.Now(), tid,
-	)
+	now := time.Now()
+	var err error
+	if len(canManage) > 0 {
+		_, err = s.db.ExecContext(ctx,
+			`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, can_manage, created_at, tenant_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			 ON CONFLICT (skill_id, agent_id) DO UPDATE SET
+			    pinned_version = EXCLUDED.pinned_version,
+			    granted_by = EXCLUDED.granted_by,
+			    can_manage = EXCLUDED.can_manage`,
+			store.GenNewID(), skillID, agentID, version, grantedBy, canManage[0], now, tid,
+		)
+	} else {
+		_, err = s.db.ExecContext(ctx,
+			`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, created_at, tenant_id)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)
+			 ON CONFLICT (skill_id, agent_id) DO UPDATE SET
+			    pinned_version = EXCLUDED.pinned_version,
+			    granted_by = EXCLUDED.granted_by`,
+			store.GenNewID(), skillID, agentID, version, grantedBy, now, tid,
+		)
+	}
 	if err != nil {
 		return err
 	}
@@ -99,6 +115,41 @@ func (s *PGSkillStore) ListAgentGrants(ctx context.Context, agentID uuid.UUID) (
 		return nil, err
 	}
 	return result, nil
+}
+
+// ListAgentGrantsForSkill returns all agent grants for one skill.
+func (s *PGSkillStore) ListAgentGrantsForSkill(ctx context.Context, skillID uuid.UUID) ([]store.SkillAgentGrantInfo, error) {
+	tClause, tArgs, _, err := scopeClause(ctx, 2)
+	if err != nil {
+		return nil, err
+	}
+	var result []store.SkillAgentGrantInfo
+	err = pkgSqlxDB.SelectContext(ctx, &result,
+		"SELECT agent_id, pinned_version, granted_by, can_manage FROM skill_agent_grants WHERE skill_id = $1"+tClause+" ORDER BY created_at DESC",
+		append([]any{skillID}, tArgs...)...)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// AgentCanManageSkill reports whether an agent has explicit edit/delete rights for a skill.
+func (s *PGSkillStore) AgentCanManageSkill(ctx context.Context, skillID, agentID uuid.UUID) (bool, error) {
+	tClause, tArgs, _, err := scopeClause(ctx, 3)
+	if err != nil {
+		return false, err
+	}
+	var canManage bool
+	err = s.db.QueryRowContext(ctx,
+		"SELECT can_manage FROM skill_agent_grants WHERE skill_id = $1 AND agent_id = $2"+tClause,
+		append([]any{skillID, agentID}, tArgs...)...).Scan(&canManage)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return canManage, nil
 }
 
 // GrantToUser grants a skill to a user (for internal visibility skills).
@@ -216,6 +267,7 @@ func (s *PGSkillStore) ListWithGrantStatus(ctx context.Context, agentID uuid.UUI
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT s.id, s.name, s.slug, COALESCE(s.description, ''), s.visibility, s.version,
 		        (sag.id IS NOT NULL) AS granted,
+		        COALESCE(sag.can_manage, false) AS can_manage,
 		        sag.pinned_version,
 		        s.is_system
 		 FROM skills s
@@ -230,7 +282,7 @@ func (s *PGSkillStore) ListWithGrantStatus(ctx context.Context, agentID uuid.UUI
 	var result []store.SkillWithGrantStatus
 	for rows.Next() {
 		var r store.SkillWithGrantStatus
-		if err := rows.Scan(&r.ID, &r.Name, &r.Slug, &r.Description, &r.Visibility, &r.Version, &r.Granted, &r.PinnedVer, &r.IsSystem); err != nil {
+		if err := rows.Scan(&r.ID, &r.Name, &r.Slug, &r.Description, &r.Visibility, &r.Version, &r.Granted, &r.CanManage, &r.PinnedVer, &r.IsSystem); err != nil {
 			slog.Warn("skill_grants: scan error in ListWithGrantStatus", "error", err)
 			continue
 		}

@@ -528,7 +528,7 @@ func (s *skillManageStoreStub) StoreMissingDeps(_ context.Context, id uuid.UUID,
 	s.skills[id] = skill
 	return nil
 }
-func (s *skillManageStoreStub) GrantToAgent(context.Context, uuid.UUID, uuid.UUID, int, string) error {
+func (s *skillManageStoreStub) GrantToAgent(context.Context, uuid.UUID, uuid.UUID, int, string, ...bool) error {
 	return nil
 }
 func (s *skillManageStoreStub) RevokeFromAgent(context.Context, uuid.UUID, uuid.UUID) error {
@@ -540,6 +540,12 @@ func (s *skillManageStoreStub) GrantToUser(context.Context, uuid.UUID, string, s
 func (s *skillManageStoreStub) RevokeFromUser(context.Context, uuid.UUID, string) error { return nil }
 func (s *skillManageStoreStub) ListWithGrantStatus(context.Context, uuid.UUID) ([]store.SkillWithGrantStatus, error) {
 	return nil, nil
+}
+func (s *skillManageStoreStub) ListAgentGrantsForSkill(context.Context, uuid.UUID) ([]store.SkillAgentGrantInfo, error) {
+	return nil, nil
+}
+func (s *skillManageStoreStub) AgentCanManageSkill(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
 }
 func (s *skillManageStoreStub) GetSkillFilePath(context.Context, uuid.UUID) (string, string, int, bool, bool) {
 	return "", "", 0, false, false

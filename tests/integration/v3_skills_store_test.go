@@ -271,6 +271,9 @@ func TestStoreSkill_GrantToAgent(t *testing.T) {
 			if !g.Granted {
 				t.Error("expected Granted=true for granted skill")
 			}
+			if g.CanManage {
+				t.Error("expected CanManage=false by default")
+			}
 			found = true
 			break
 		}
@@ -293,6 +296,37 @@ func TestStoreSkill_GrantToAgent(t *testing.T) {
 	}
 	if !foundAccessible {
 		t.Error("granted skill not found in ListAccessible")
+	}
+
+	if err := s.GrantToAgent(ctx, skillID, agentID, 1, "test-owner", true); err != nil {
+		t.Fatalf("GrantToAgent can_manage: %v", err)
+	}
+	canManage, err := s.AgentCanManageSkill(ctx, skillID, agentID)
+	if err != nil {
+		t.Fatalf("AgentCanManageSkill: %v", err)
+	}
+	if !canManage {
+		t.Error("expected AgentCanManageSkill=true after manage grant")
+	}
+	if err := s.GrantToAgent(ctx, skillID, agentID, 1, "test-owner"); err != nil {
+		t.Fatalf("GrantToAgent preserve can_manage: %v", err)
+	}
+	canManage, err = s.AgentCanManageSkill(ctx, skillID, agentID)
+	if err != nil {
+		t.Fatalf("AgentCanManageSkill after preserve grant: %v", err)
+	}
+	if !canManage {
+		t.Error("expected omitted can_manage grant update to preserve existing manage permission")
+	}
+	if err := s.GrantToAgent(ctx, skillID, agentID, 1, "test-owner", false); err != nil {
+		t.Fatalf("GrantToAgent can_manage false: %v", err)
+	}
+	canManage, err = s.AgentCanManageSkill(ctx, skillID, agentID)
+	if err != nil {
+		t.Fatalf("AgentCanManageSkill after false grant: %v", err)
+	}
+	if canManage {
+		t.Error("expected explicit can_manage=false to revoke manage permission")
 	}
 
 	// Revoke

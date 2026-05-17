@@ -89,8 +89,17 @@ type SkillWithGrantStatus struct {
 	Visibility  string    `json:"visibility" db:"visibility"`
 	Version     int       `json:"version" db:"version"`
 	Granted     bool      `json:"granted" db:"granted"`
+	CanManage   bool      `json:"can_manage" db:"can_manage"`
 	PinnedVer   *int      `json:"pinned_version,omitempty" db:"pinned_version"`
 	IsSystem    bool      `json:"is_system" db:"is_system"`
+}
+
+// SkillAgentGrantInfo is a grant row for one skill across agents.
+type SkillAgentGrantInfo struct {
+	AgentID       uuid.UUID `json:"agent_id" db:"agent_id"`
+	PinnedVersion int       `json:"pinned_version" db:"pinned_version"`
+	GrantedBy     string    `json:"granted_by" db:"granted_by"`
+	CanManage     bool      `json:"can_manage" db:"can_manage"`
 }
 
 // SkillManageStore extends SkillStore with CRUD, ownership, and grant operations
@@ -119,11 +128,13 @@ type SkillManageStore interface {
 	ListSystemSkillDirs(ctx context.Context) map[string]string
 	StoreMissingDeps(ctx context.Context, id uuid.UUID, missing []string) error
 	// Grants
-	GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string) error
+	GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string, canManage ...bool) error
 	RevokeFromAgent(ctx context.Context, skillID, agentID uuid.UUID) error
 	GrantToUser(ctx context.Context, skillID uuid.UUID, userID, grantedBy string) error
 	RevokeFromUser(ctx context.Context, skillID uuid.UUID, userID string) error
 	ListWithGrantStatus(ctx context.Context, agentID uuid.UUID) ([]SkillWithGrantStatus, error)
+	ListAgentGrantsForSkill(ctx context.Context, skillID uuid.UUID) ([]SkillAgentGrantInfo, error)
+	AgentCanManageSkill(ctx context.Context, skillID, agentID uuid.UUID) (bool, error)
 	// Files
 	GetSkillFilePath(ctx context.Context, id uuid.UUID) (filePath string, slug string, version int, isSystem bool, ok bool)
 }

@@ -170,7 +170,7 @@ func (t *PublishSkillTool) Execute(ctx context.Context, args map[string]any) *Re
 	// Auto-grant to calling agent (granted-by = owner, same as CreateSkillManaged)
 	agentID := store.AgentIDFromContext(ctx)
 	if agentID != uuid.Nil {
-		if err := t.skills.GrantToAgent(ctx, id, agentID, version, ownerID); err != nil {
+		if err := t.skills.GrantToAgent(ctx, id, agentID, version, ownerID, true); err != nil {
 			slog.Warn("publish_skill: auto-grant failed", "error", err)
 		}
 	}

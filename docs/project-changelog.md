@@ -6,6 +6,24 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-17
 
+### Skills: agent manage grants
+
+**Fixes**
+
+- Added explicit per-agent skill manage grants so agents can edit/delete skills they were authorized to maintain even when `owner_id` no longer matches their current actor identity.
+- Auto-granted manage permission to the creating/publishing agent for new managed skills.
+
+**UI**
+
+- Show custom skill owner IDs in the Skills table.
+- Added Skills page controls to grant agent skill access and edit/delete permission.
+
+**Tests**
+
+- Added PG/SQLite grant coverage and verified Go builds plus Web UI build.
+
+---
+
 ### Agents: provider switch save fix
 
 **Fixes**

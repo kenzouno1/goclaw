@@ -4,6 +4,7 @@ package sqlitestore
 
 import (
 	"context"
+	"database/sql"
 	"log/slog"
 	"time"
 
@@ -20,19 +21,35 @@ type SkillGrantInfo struct {
 }
 
 // GrantToAgent grants a skill to an agent with version pinning.
-func (s *SQLiteSkillStore) GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string) error {
+func (s *SQLiteSkillStore) GrantToAgent(ctx context.Context, skillID, agentID uuid.UUID, version int, grantedBy string, canManage ...bool) error {
 	if err := store.ValidateUserID(grantedBy); err != nil {
 		return err
 	}
-
 	// Upsert grant.
 	id := store.GenNewID()
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, created_at, tenant_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT (skill_id, agent_id) DO UPDATE SET pinned_version = excluded.pinned_version`,
-		id, skillID, agentID, version, grantedBy, time.Now().UTC(), tenantIDForInsert(ctx),
-	)
+	now := time.Now().UTC()
+	tid := tenantIDForInsert(ctx)
+	var err error
+	if len(canManage) > 0 {
+		_, err = s.db.ExecContext(ctx,
+			`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, can_manage, created_at, tenant_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT (skill_id, agent_id) DO UPDATE SET
+			    pinned_version = excluded.pinned_version,
+			    granted_by = excluded.granted_by,
+			    can_manage = excluded.can_manage`,
+			id, skillID, agentID, version, grantedBy, canManage[0], now, tid,
+		)
+	} else {
+		_, err = s.db.ExecContext(ctx,
+			`INSERT INTO skill_agent_grants (id, skill_id, agent_id, pinned_version, granted_by, created_at, tenant_id)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT (skill_id, agent_id) DO UPDATE SET
+			    pinned_version = excluded.pinned_version,
+			    granted_by = excluded.granted_by`,
+			id, skillID, agentID, version, grantedBy, now, tid,
+		)
+	}
 	if err != nil {
 		return err
 	}
@@ -100,6 +117,51 @@ func (s *SQLiteSkillStore) ListAgentGrants(ctx context.Context, agentID uuid.UUI
 		result = append(result, g)
 	}
 	return result, rows.Err()
+}
+
+// ListAgentGrantsForSkill returns all agent grants for one skill.
+func (s *SQLiteSkillStore) ListAgentGrantsForSkill(ctx context.Context, skillID uuid.UUID) ([]store.SkillAgentGrantInfo, error) {
+	tClause, tArgs, err := scopeClause(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT agent_id, pinned_version, granted_by, can_manage FROM skill_agent_grants WHERE skill_id = ?"+tClause+" ORDER BY created_at DESC",
+		append([]any{skillID}, tArgs...)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []store.SkillAgentGrantInfo
+	for rows.Next() {
+		var g store.SkillAgentGrantInfo
+		if err := rows.Scan(&g.AgentID, &g.PinnedVersion, &g.GrantedBy, &g.CanManage); err != nil {
+			slog.Warn("skill_grants: scan error in ListAgentGrantsForSkill", "error", err)
+			continue
+		}
+		result = append(result, g)
+	}
+	return result, rows.Err()
+}
+
+// AgentCanManageSkill reports whether an agent has explicit edit/delete rights for a skill.
+func (s *SQLiteSkillStore) AgentCanManageSkill(ctx context.Context, skillID, agentID uuid.UUID) (bool, error) {
+	tClause, tArgs, err := scopeClause(ctx)
+	if err != nil {
+		return false, err
+	}
+	var canManage bool
+	err = s.db.QueryRowContext(ctx,
+		"SELECT can_manage FROM skill_agent_grants WHERE skill_id = ? AND agent_id = ?"+tClause,
+		append([]any{skillID, agentID}, tArgs...)...).Scan(&canManage)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return canManage, nil
 }
 
 // GrantToUser grants a skill to a user.
@@ -214,6 +276,7 @@ func (s *SQLiteSkillStore) ListWithGrantStatus(ctx context.Context, agentID uuid
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT s.id, s.name, s.slug, COALESCE(s.description, ''), s.visibility, s.version,
 		        (sag.id IS NOT NULL) AS granted,
+		        COALESCE(sag.can_manage, 0) AS can_manage,
 		        sag.pinned_version,
 		        s.is_system
 		 FROM skills s
@@ -229,7 +292,7 @@ func (s *SQLiteSkillStore) ListWithGrantStatus(ctx context.Context, agentID uuid
 	for rows.Next() {
 		var r store.SkillWithGrantStatus
 		if err := rows.Scan(&r.ID, &r.Name, &r.Slug, &r.Description, &r.Visibility,
-			&r.Version, &r.Granted, &r.PinnedVer, &r.IsSystem); err != nil {
+			&r.Version, &r.Granted, &r.CanManage, &r.PinnedVer, &r.IsSystem); err != nil {
 			slog.Warn("skill_grants: scan error in ListWithGrantStatus", "error", err)
 			continue
 		}

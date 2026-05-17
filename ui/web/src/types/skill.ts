@@ -12,6 +12,7 @@ export interface SkillInfo {
   enabled?: boolean;
   tenant_enabled?: boolean | null;
   author?: string;
+  owner_id?: string;
   missing_deps?: string[];
 }
 
@@ -35,6 +36,14 @@ export interface SkillWithGrant {
   visibility: string;
   version: number;
   granted: boolean;
+  can_manage?: boolean;
   pinned_version?: number;
   is_system: boolean;
+}
+
+export interface SkillAgentGrant {
+  agent_id: string;
+  pinned_version: number;
+  granted_by: string;
+  can_manage: boolean;
 }
