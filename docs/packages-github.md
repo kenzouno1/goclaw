@@ -24,7 +24,7 @@ Examples:
 4. Verifies SHA256 if the publisher ships `checksums.txt` / `SHA256SUMS`
 5. Validates ELF magic bytes + 64-bit class + machine matches runtime arch
 6. Extracts archive safely (tar.gz / zip / raw binary) with path-traversal + zip-bomb guards
-7. Installs to `/app/data/.runtime/bin/` (prepended to `$PATH`)
+7. Installs to `{runtimeDir}/bin/` (prepended to `$PATH`)
 8. Persists a manifest for later listing + uninstall
 
 ## Usage
@@ -69,7 +69,7 @@ token in `config.json`.
 | `GOCLAW_PACKAGES_GITHUB_TOKEN` | `""` | Optional PAT: rate 60/hr → 5000/hr + private repo access |
 | `GOCLAW_PACKAGES_MAX_ASSET_SIZE_MB` | `200` | Applies to both download cap and 2× uncompressed cap |
 | `GOCLAW_PACKAGES_GITHUB_ALLOWED_ORGS` | `""` | Comma-separated allowlist (empty = all orgs allowed) |
-| `GOCLAW_PACKAGES_GITHUB_BIN_DIR` | `/app/data/.runtime/bin` | Where extracted binaries land |
+| `GOCLAW_PACKAGES_GITHUB_BIN_DIR` | `{runtimeDir}/bin` | Where extracted binaries land |
 | `GOCLAW_PACKAGES_GITHUB_MANIFEST` | `{bin_dir}/../github-packages.json` | Manifest path |
 
 Token scopes:
@@ -133,7 +133,7 @@ the release. Do not force-install; report upstream.
 ## Limitations (Phase 1)
 
 - Linux-only (Lite/Desktop editions not yet supported)
-- Docker edition only (runtime dir `/app/data/.runtime/bin`)
+- Docker and bare-metal gateway editions (default runtime dir resolves to `/app/data/.runtime/bin` in Docker or `/var/lib/goclaw/data/.runtime/bin` on bare-metal Linux)
 - Installs all top-level executables in an archive (no interactive picker if
   archive contains multiple binaries)
 - No version history / rollback — re-installing replaces in place

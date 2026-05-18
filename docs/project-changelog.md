@@ -6,6 +6,19 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-18
 
+### Packages: GitHub installer runtime path
+
+**Fixes**
+
+- Fixed GitHub Releases package installs on bare-metal gateways by defaulting the GitHub binary directory to `{runtimeDir}/bin` instead of Docker-only `/app/data/.runtime/bin`.
+- The fix covers installs such as `github:nextlevelbuilder/goclaw-cli@v0.4.1` on the VPS, where `/app` is not writable or present.
+
+**Tests**
+
+- Added default-path regression coverage and made Unix-socket apk helper tests skip cleanly on Windows environments that cannot bind Unix sockets.
+
+---
+
 ### Providers: ChatGPT OAuth GPT-5.5 default
 
 **Changed**

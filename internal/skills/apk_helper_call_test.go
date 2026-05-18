@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -42,6 +43,9 @@ func servePkgHelper(t *testing.T, sockPath, respJSON string) func() {
 
 	ln, err := net.Listen("unix", sockPath)
 	if err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skipf("unix sockets are not available in this Windows test environment: %v", err)
+		}
 		t.Fatalf("servePkgHelper: listen %q: %v", sockPath, err)
 	}
 
