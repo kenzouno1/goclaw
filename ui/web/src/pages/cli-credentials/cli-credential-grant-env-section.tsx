@@ -149,6 +149,9 @@ export function CliCredentialGrantEnvSection({
 
   return (
     <div className="grid gap-2 rounded-md border p-3">
+      <Label className="text-sm font-medium">
+        {t("grants.envVars.title")}
+      </Label>
       <div className="flex items-start gap-3">
         <Switch id="grant-env-override" checked={overrideEnabled} onCheckedChange={handleToggle} className="mt-0.5" />
         <div className="grid gap-0.5">

@@ -57,11 +57,13 @@ func (c *NpmUpdateChecker) Check(ctx context.Context, knownETags map[string]stri
 		slog.Info("package.update.npm.unavailable", "reason", "npm not found")
 		return UpdateCheckResult{Source: "npm", Available: false}
 	}
+	ensureNpmGlobalEnv()
 
 	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(cctx, npmBinary, "outdated", "--global", "--json")
+	cmd.Env = npmCommandEnv()
 	cmd.WaitDelay = 2 * time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -137,6 +137,33 @@ func validateAndSerializeEnvVars(w http.ResponseWriter, locale string, envVars m
 	return b, true
 }
 
+func parseGrantPathIDs(w http.ResponseWriter, r *http.Request, locale string) (uuid.UUID, uuid.UUID, bool) {
+	binaryID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "credential")})
+		return uuid.Nil, uuid.Nil, false
+	}
+	grantID, err := uuid.Parse(r.PathValue("grantId"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "grant")})
+		return uuid.Nil, uuid.Nil, false
+	}
+	return binaryID, grantID, true
+}
+
+func (h *SecureCLIGrantHandler) getGrantForBinary(w http.ResponseWriter, r *http.Request, locale string) (*store.SecureCLIAgentGrant, uuid.UUID, bool) {
+	binaryID, grantID, ok := parseGrantPathIDs(w, r, locale)
+	if !ok {
+		return nil, uuid.Nil, false
+	}
+	g, err := h.grants.Get(r.Context(), grantID)
+	if err != nil || g.BinaryID != binaryID {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "grant", grantID.String())})
+		return nil, uuid.Nil, false
+	}
+	return g, binaryID, true
+}
+
 func (h *SecureCLIGrantHandler) handleList(w http.ResponseWriter, r *http.Request) {
 	if !requireTenantAdmin(w, r, h.tenantStore) {
 		return
@@ -178,6 +205,22 @@ func (h *SecureCLIGrantHandler) handleCreate(w http.ResponseWriter, r *http.Requ
 	}
 	if req.AgentID == uuid.Nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgRequired, "agent_id")})
+		return
+	}
+	if exists, err := h.grants.BinaryExists(r.Context(), binaryID); err != nil {
+		slog.Error("secure_cli_grants.create.binary_scope", "binary_id", binaryID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "validate credential")})
+		return
+	} else if !exists {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "credential", binaryID.String())})
+		return
+	}
+	if exists, err := h.grants.AgentExists(r.Context(), req.AgentID); err != nil {
+		slog.Error("secure_cli_grants.create.agent_scope", "agent_id", req.AgentID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "validate agent")})
+		return
+	} else if !exists {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "agent", req.AgentID.String())})
 		return
 	}
 
@@ -243,14 +286,8 @@ func (h *SecureCLIGrantHandler) handleGet(w http.ResponseWriter, r *http.Request
 		return
 	}
 	locale := store.LocaleFromContext(r.Context())
-	grantID, err := uuid.Parse(r.PathValue("grantId"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "grant")})
-		return
-	}
-	g, err := h.grants.Get(r.Context(), grantID)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "grant", grantID.String())})
+	g, _, ok := h.getGrantForBinary(w, r, locale)
+	if !ok {
 		return
 	}
 	populateGrantEnvFields(g)
@@ -262,9 +299,8 @@ func (h *SecureCLIGrantHandler) handleUpdate(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	locale := store.LocaleFromContext(r.Context())
-	grantID, err := uuid.Parse(r.PathValue("grantId"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "grant")})
+	g, binaryID, ok := h.getGrantForBinary(w, r, locale)
+	if !ok {
 		return
 	}
 
@@ -298,16 +334,13 @@ func (h *SecureCLIGrantHandler) handleUpdate(w http.ResponseWriter, r *http.Requ
 			updates[k] = decoded
 		}
 	}
-	if err := h.grants.Update(r.Context(), grantID, updates); err != nil {
-		slog.Error("secure_cli_grants.update", "grant_id", grantID, "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "update grant")})
-		return
-	}
-
 	// 3-state env_vars semantics: absent=skip, null=clear, {...}=replace.
 	// Finding #15: {} (empty map) is treated as clear — same as null.
 	// TS type: absent | null | Record<string,string> — see ui/web/src/types/cli-credential.ts.
+	var envJSON []byte
+	envPresent := false
 	if envRaw, present := raw["env_vars"]; present {
+		envPresent = true
 		var envPtr *map[string]string
 		if string(envRaw) != "null" {
 			var m map[string]string
@@ -320,7 +353,6 @@ func (h *SecureCLIGrantHandler) handleUpdate(w http.ResponseWriter, r *http.Requ
 		// envPtr == nil → clear; envPtr != nil → replace.
 		// Note: envPtr pointing to an empty map ({}) is treated as clear (same as null) —
 		// envJSON stays nil and UpdateGrantEnv(nil) removes the override.
-		var envJSON []byte
 		if envPtr != nil && len(*envPtr) > 0 {
 			j, ok := validateAndSerializeEnvVars(w, locale, *envPtr)
 			if !ok {
@@ -328,14 +360,23 @@ func (h *SecureCLIGrantHandler) handleUpdate(w http.ResponseWriter, r *http.Requ
 			}
 			envJSON = j
 		}
-		if err := h.grants.UpdateGrantEnv(r.Context(), grantID, envJSON); err != nil {
-			slog.Error("secure_cli_grants.update.set_env", "grant_id", grantID, "error", err)
+	}
+
+	if err := h.grants.Update(r.Context(), g.ID, updates); err != nil {
+		slog.Error("secure_cli_grants.update", "grant_id", g.ID, "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "update grant")})
+		return
+	}
+
+	if envPresent {
+		if err := h.grants.UpdateGrantEnv(r.Context(), g.ID, envJSON); err != nil {
+			slog.Error("secure_cli_grants.update.set_env", "grant_id", g.ID, "error", err)
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "update grant env")})
 			return
 		}
 	}
 
-	h.emitCacheInvalidate(r.PathValue("id"))
+	h.emitCacheInvalidate(binaryID.String())
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -344,18 +385,17 @@ func (h *SecureCLIGrantHandler) handleDelete(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	locale := store.LocaleFromContext(r.Context())
-	grantID, err := uuid.Parse(r.PathValue("grantId"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "grant")})
+	g, binaryID, ok := h.getGrantForBinary(w, r, locale)
+	if !ok {
 		return
 	}
-	if err := h.grants.Delete(r.Context(), grantID); err != nil {
-		slog.Error("secure_cli_grants.delete", "grant_id", grantID, "error", err)
+	if err := h.grants.Delete(r.Context(), g.ID); err != nil {
+		slog.Error("secure_cli_grants.delete", "grant_id", g.ID, "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "delete grant")})
 		return
 	}
 
-	h.emitCacheInvalidate(r.PathValue("id"))
+	h.emitCacheInvalidate(binaryID.String())
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -407,26 +447,9 @@ func (h *SecureCLIGrantHandler) handleRevealEnv(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	grantID, err := uuid.Parse(r.PathValue("grantId"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "grant")})
-		return
-	}
-	binaryID, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": i18n.T(locale, i18n.MsgInvalidID, "binary")})
-		return
-	}
-
-	// store.Get enforces tenant_id = $2 filter (non-cross-tenant context).
-	g, err := h.grants.Get(ctx, grantID)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "grant", grantID.String())})
-		return
-	}
-	// Enforce URL parent-child hierarchy: grant must belong to binaryID in path.
-	if g.BinaryID != binaryID {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": i18n.T(locale, i18n.MsgNotFound, "grant", grantID.String())})
+	// store.Get enforces tenant_id filter; helper also enforces URL parent-child hierarchy.
+	g, binaryID, ok := h.getGrantForBinary(w, r, locale)
+	if !ok {
 		return
 	}
 
@@ -438,7 +461,7 @@ func (h *SecureCLIGrantHandler) handleRevealEnv(w http.ResponseWriter, r *http.R
 	slog.Info("audit.cli_credential.env.reveal",
 		"caller_id", callerID,
 		"tenant_id", tenantID,
-		"grant_id", grantID,
+		"grant_id", g.ID,
 		"binary_id", binaryID,
 		"reason", "reveal-env",
 		"ts", time.Now().UTC(),
@@ -455,7 +478,7 @@ func (h *SecureCLIGrantHandler) handleRevealEnv(w http.ResponseWriter, r *http.R
 	}
 	var envVars map[string]string
 	if err := json.Unmarshal(g.EncryptedEnv, &envVars); err != nil {
-		slog.Error("secure_cli_grants.reveal.parse", "grant_id", grantID, "error", err)
+		slog.Error("secure_cli_grants.reveal.parse", "grant_id", g.ID, "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": i18n.T(locale, i18n.MsgInternalError, "parse grant env")})
 		return
 	}

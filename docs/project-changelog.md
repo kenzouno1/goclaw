@@ -4,7 +4,121 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ---
 
-<<<<<<< HEAD
+## 2026-05-17
+
+### Agents: provider switch save fix
+
+**Fixes**
+
+- Fixed agent detail save after switching provider/model when the UI clears stale ChatGPT OAuth routing; typed JSON nulls now coerce to `{}` for NOT NULL agent JSON config columns in PostgreSQL and SQLite.
+
+**Tests**
+
+- Added regression coverage for typed `json.RawMessage(nil)` / JSON `null` agent config updates.
+
+---
+
+### Deployment: VPS hybrid GoClaw setup
+
+**Operations**
+
+- Deployed GoClaw to a VPS using bare-metal `systemd` gateway plus Dockerized PostgreSQL 18 pgvector.
+- Restored the latest private PostgreSQL backup, then upgraded schema from `57` to `65`.
+- Installed Node.js 22 and Codex CLI on the host; interactive `codex --login` remains manual.
+- Configured Cloudflare-proxied deployment domain and issued SSL through Certbot/Nginx.
+- Added `goclaw-backup-r2.timer` to dump PostgreSQL every 6 hours, upload to private Cloudflare R2 storage, and retain the latest 20 backups.
+- Added deployment runbook in `docs/deployment-guide.md`.
+
+**Features**
+
+- Added a protected gateway upgrade HTTP API that triggers the fixed host-local upgrade script asynchronously.
+- Added `scripts/goclaw-upgrade-release.sh` and installed the VPS copy at `/usr/local/bin/goclaw-upgrade-release`; dry-run verifies the latest stable server release asset and checksum before deploy.
+
+---
+
+### CI/CD: dev branch beta automation
+
+**Features**
+
+- Added a `Dev CI and Beta Release` GitHub Actions workflow for `dev` pushes that runs Go and Web UI checks before publishing a beta prerelease.
+- Added semantic-release-style beta version calculation from Conventional Commits, creating `vX.Y.Z-beta.N` tags and prereleases automatically after tests pass.
+- Beta automation uploads Linux binaries and publishes `beta` Docker image tags for the same release version, with Docker Hub publishing enabled when credentials are configured.
+
+**Fixes**
+
+- Made beta prerelease publishing independent of a local checkout by passing the repository explicitly to GitHub CLI release commands.
+
+---
+
+### Agent Permissions: channel and workspace matrix
+
+**Features**
+
+- Added `config.permissions.check` so the UI can preview the effective allow/deny decision for an agent, scope, config type, and user.
+- Added Permissions UI support for `userId="*"` to grant all members in a selected group scope.
+- Documented the cross-channel agent permission matrix, including Zalo group context writes and workspace/context file boundaries.
+
+**Security**
+
+- Protected group context file writes now require a real sender with `context_files` or legacy `file_writer` permission.
+- Group file/context/cron permission-store errors now fail closed instead of silently allowing mutation.
+- Backend config permission RPCs validate config types and permission values before storing rules.
+
+**Tests**
+
+- Added focused store and context interceptor coverage for permission preview and protected group context writes.
+
+---
+
+### CLI Credentials: per-agent env vars under Packages
+
+**Features**
+
+- Kept `CLI Credentials` as the Packages tab at `/packages?tab=cli-credentials` and preserved the legacy `/cli-credentials` redirect.
+- Removed the duplicate standalone `CLI Credentials` item from the left sidebar.
+- Added focused coverage for grant env payload semantics and routing contracts.
+
+**Fixes**
+
+- Made agent-grant environment variable controls easier to find by labeling the row action and adding a visible Environment Variables header inside the grant form.
+
+**Security**
+
+- Nested agent-grant get/update/delete/reveal routes now verify the grant belongs to the binary ID in the URL.
+- Grant creation now validates both the CLI binary and target agent exist in the authenticated tenant before inserting.
+- Grant updates now validate env payloads before scalar writes, preventing partial state changes on 400 responses.
+- Runtime env precedence is covered: per-user env overrides per-agent grant env for duplicate keys.
+- Credentialed exec now fails closed if per-user env JSON is invalid.
+- SQLite add-column migrations for replayed schema snapshots now skip already-present columns.
+
+**Tests**
+
+- Focused backend, store compile, UI unit, and web build validation pass.
+- Live PostgreSQL validation skipped because `TEST_DATABASE_URL` is not set.
+
+---
+
+## 2026-05-16
+
+### Agents: per-agent model fallback
+
+**Features**
+
+- Added per-agent `model_fallback` config with ordered provider/model candidates.
+- Agent advanced config UI now supports enabling fallback, adding backup provider/model pairs, and drag-and-drop ordering.
+- Runtime wraps the resolved agent provider with fallback only for normal agent execution. Explicit provider/model overrides bypass the fallback chain.
+
+**Migrations**
+
+- **PG:** `000065_agent_model_fallback` adds `agents.model_fallback JSONB NOT NULL DEFAULT '{}'`.
+- **SQLite:** schema v33 to v34 adds `agents.model_fallback TEXT NOT NULL DEFAULT '{}'`.
+
+**Tests**
+
+- Focused provider, provider resolver, store tests pass. Main app builds in default and `sqliteonly` modes. Web production build passes.
+
+---
+
 ## v3.11.3 — 2026-04-26
 
 ### Fixes
@@ -154,7 +268,9 @@ Implementation is evidence-backed against the native ChatGPT Responses API event
 **Docs**
 
 - Updated `docs/02-providers.md` and `docs/18-http-api.md` to describe the two-strategy model and the compatibility migration.
-=======
+
+---
+
 ## 2026-04-21
 
 ### Webhook fixes (post-review security & idempotency hardening)
@@ -187,7 +303,6 @@ Implementation is evidence-backed against the native ChatGPT Responses API event
 - `GOCLAW_ENCRYPTION_KEY` is now **required** for webhook HMAC auth. Same key also encrypts LLM provider credentials.
 
 ---
->>>>>>> a83f4090 (fix(webhooks): address post-review findings (K1-K10))
 
 ## 2026-04-19
 

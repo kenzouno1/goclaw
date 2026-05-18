@@ -545,8 +545,7 @@ func TestSlotDrainFixed(t *testing.T) {
 	// Simulate a goroutine that runs and calls slotRelease.
 	done := make(chan struct{})
 	go func() {
-		defer slotRelease()
-		// "Work" is done.
+		slotRelease()
 		close(done)
 	}()
 

@@ -373,20 +373,11 @@ func (t *ExecTool) executeCredentialed(ctx context.Context, cred *store.SecureCL
 		return credentialedDenyError(binary, args, p)
 	}
 
-	// Step 4: Decrypt env vars from store (already decrypted by store layer)
-	envMap := make(map[string]string)
-	if len(cred.EncryptedEnv) > 0 {
-		if err := json.Unmarshal(cred.EncryptedEnv, &envMap); err != nil {
-			return ErrorResult(fmt.Sprintf("credentialed exec: invalid env JSON for %q: %v", binary, err))
-		}
-	}
-
-	// Step 4b: Merge per-user env overrides (user takes priority over base)
-	if len(cred.UserEnv) > 0 {
-		var userEnvMap map[string]string
-		if err := json.Unmarshal(cred.UserEnv, &userEnvMap); err == nil {
-			maps.Copy(envMap, userEnvMap)
-		}
+	// Step 4: Decrypt env vars from store (already decrypted by store layer).
+	// Per-user env overrides take priority over binary/grant env.
+	envMap, err := mergeCredentialedEnv(cred)
+	if err != nil {
+		return ErrorResult(fmt.Sprintf("credentialed exec: invalid env JSON for %q: %v", binary, err))
 	}
 
 	// Step 5: Register credential values for output scrubbing
@@ -405,6 +396,26 @@ func (t *ExecTool) executeCredentialed(ctx context.Context, cred *store.SecureCL
 		return t.executeCredentialedSandbox(ctx, absPath, args, cwd, sandboxKey, envMap, timeout)
 	}
 	return t.executeCredentialedHost(ctx, absPath, args, cwd, envMap, timeout)
+}
+
+func mergeCredentialedEnv(cred *store.SecureCLIBinary) (map[string]string, error) {
+	envMap := make(map[string]string)
+	if cred == nil {
+		return envMap, nil
+	}
+	if len(cred.EncryptedEnv) > 0 {
+		if err := json.Unmarshal(cred.EncryptedEnv, &envMap); err != nil {
+			return nil, err
+		}
+	}
+	if len(cred.UserEnv) > 0 {
+		var userEnvMap map[string]string
+		if err := json.Unmarshal(cred.UserEnv, &userEnvMap); err != nil {
+			return nil, err
+		}
+		maps.Copy(envMap, userEnvMap)
+	}
+	return envMap, nil
 }
 
 // executeCredentialedHost runs a credentialed command directly on the host.

@@ -2,6 +2,8 @@ package skills
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +18,24 @@ func TestSharedPackageLocker_NilPath(t *testing.T) {
 
 	if got := sharedPackageLocker(); got != nil {
 		t.Errorf("sharedPackageLocker() = %v, want nil when not set", got)
+	}
+}
+
+func TestInstallSingleDepNpmUsesWritableRuntimePrefix(t *testing.T) {
+	runtimeDir := t.TempDir()
+	t.Setenv("RUNTIME_DIR", runtimeDir)
+	t.Setenv("NPM_CONFIG_PREFIX", "")
+	t.Setenv("FIXTURE_NPM_EXIT", "0")
+	useFixtureNpm(t)
+
+	ok, msg := InstallSingleDep(context.Background(), "npm:@aiagentwiki/cli")
+	if !ok {
+		t.Fatalf("InstallSingleDep failed: %s", msg)
+	}
+
+	wantPrefix := filepath.Join(runtimeDir, "npm-global")
+	if _, err := os.Stat(wantPrefix); err != nil {
+		t.Fatalf("npm prefix %q was not created: %v", wantPrefix, err)
 	}
 }
 

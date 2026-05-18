@@ -156,6 +156,9 @@ func (l *Loop) injectContext(ctx context.Context, req *RunRequest) (contextSetup
 		}
 		// Apply user isolation layer via pipeline.
 		shared := l.shouldShareWorkspace(req.UserID, req.PeerKind)
+		if shared {
+			ctx = store.WithSharedContext(ctx)
+		}
 		effectiveWorkspace := tools.ResolveWorkspace(ws,
 			tools.UserChatLayer(tools.SanitizePathSegment(req.UserID), shared),
 		)
@@ -359,6 +362,7 @@ func (l *Loop) injectContext(ctx context.Context, req *RunRequest) (contextSetup
 		SharedMemory:        store.IsSharedMemory(ctx),
 		SharedKG:            store.IsSharedKG(ctx),
 		SharedSessions:      store.IsSharedSessions(ctx),
+		SharedContext:       store.IsSharedContext(ctx),
 		RestrictToWorkspace: l.restrictToWs != nil && *l.restrictToWs,
 		BuiltinToolSettings: l.builtinToolSettings,
 		ChannelType:         req.ChannelType,

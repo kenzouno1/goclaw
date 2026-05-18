@@ -67,8 +67,15 @@ export function CliCredentialsTable({ items, onEdit, onDelete, onUserCreds, onGr
                 <td className="px-4 py-3 text-muted-foreground">{item.timeout_seconds}s</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => onGrants(item)} title={t("grants.title", { name: item.binary_name })}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onGrants(item)}
+                      title={t("grants.title", { name: item.binary_name })}
+                      className="gap-1"
+                    >
                       <Shield className="h-3.5 w-3.5" />
+                      {t("grants.addGrant")}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => onUserCreds(item)} title={t("userCredentials.title")}>
                       <Users className="h-3.5 w-3.5" />

@@ -26,6 +26,42 @@ func NewPGSecureCLIAgentGrantStore(db *sql.DB, encKey string) *PGSecureCLIAgentG
 
 const grantSelectCols = `id, binary_id, agent_id, deny_args, deny_verbose, timeout_seconds, tips, enabled, encrypted_env, created_at, updated_at`
 
+func (s *PGSecureCLIAgentGrantStore) BinaryExists(ctx context.Context, binaryID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM secure_cli_binaries WHERE id = $1`
+	args := []any{binaryID}
+	if !store.IsCrossTenant(ctx) {
+		tid := store.TenantIDFromContext(ctx)
+		if tid == uuid.Nil {
+			return false, nil
+		}
+		query += ` AND tenant_id = $2`
+		args = append(args, tid)
+	}
+	query += `)`
+
+	var exists bool
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&exists)
+	return exists, err
+}
+
+func (s *PGSecureCLIAgentGrantStore) AgentExists(ctx context.Context, agentID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM agents WHERE id = $1 AND deleted_at IS NULL`
+	args := []any{agentID}
+	if !store.IsCrossTenant(ctx) {
+		tid := store.TenantIDFromContext(ctx)
+		if tid == uuid.Nil {
+			return false, nil
+		}
+		query += ` AND tenant_id = $2`
+		args = append(args, tid)
+	}
+	query += `)`
+
+	var exists bool
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&exists)
+	return exists, err
+}
+
 func (s *PGSecureCLIAgentGrantStore) Create(ctx context.Context, g *store.SecureCLIAgentGrant) error {
 	if g.ID == uuid.Nil {
 		g.ID = store.GenNewID()

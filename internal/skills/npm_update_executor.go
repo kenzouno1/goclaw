@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -46,7 +47,12 @@ func (e *NpmUpdateExecutor) Update(ctx context.Context, name, toVersion string, 
 	// suffixes, so the only "@" in the token is our version separator.
 	target := name + "@" + toVersion
 
+	if err := os.MkdirAll(npmGlobalPrefix(), 0o750); err != nil {
+		return fmt.Errorf("npm prefix setup: %w", err)
+	}
+	ensureNpmGlobalEnv()
 	cmd := exec.CommandContext(cctx, npmBinary, "install", "--global", target)
+	cmd.Env = npmCommandEnv()
 	cmd.WaitDelay = 2 * time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

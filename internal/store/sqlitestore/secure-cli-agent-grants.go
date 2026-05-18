@@ -6,8 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log/slog"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,6 +28,42 @@ func NewSQLiteSecureCLIAgentGrantStore(db *sql.DB, encKey string) *SQLiteSecureC
 }
 
 const grantSelectCols = `id, binary_id, agent_id, deny_args, deny_verbose, timeout_seconds, tips, enabled, encrypted_env, created_at, updated_at`
+
+func (s *SQLiteSecureCLIAgentGrantStore) BinaryExists(ctx context.Context, binaryID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM secure_cli_binaries WHERE id = ?`
+	args := []any{binaryID}
+	if !store.IsCrossTenant(ctx) {
+		tid := store.TenantIDFromContext(ctx)
+		if tid == uuid.Nil {
+			return false, nil
+		}
+		query += ` AND tenant_id = ?`
+		args = append(args, tid)
+	}
+	query += `)`
+
+	var exists bool
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&exists)
+	return exists, err
+}
+
+func (s *SQLiteSecureCLIAgentGrantStore) AgentExists(ctx context.Context, agentID uuid.UUID) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM agents WHERE id = ? AND deleted_at IS NULL`
+	args := []any{agentID}
+	if !store.IsCrossTenant(ctx) {
+		tid := store.TenantIDFromContext(ctx)
+		if tid == uuid.Nil {
+			return false, nil
+		}
+		query += ` AND tenant_id = ?`
+		args = append(args, tid)
+	}
+	query += `)`
+
+	var exists bool
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&exists)
+	return exists, err
+}
 
 func (s *SQLiteSecureCLIAgentGrantStore) Create(ctx context.Context, g *store.SecureCLIAgentGrant) error {
 	if g.ID == uuid.Nil {

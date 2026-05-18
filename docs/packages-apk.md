@@ -202,12 +202,36 @@ HTTP status mapping (via `packages_updates.go`):
 
 `/app/pkg-helper` is not running, or `/tmp/pkg.sock` does not exist.
 
+For Docker Alpine deployments this is an error. For bare-metal Ubuntu/Debian
+deployments, `/tmp/pkg.sock` is expected to be absent; package install should
+use the apt path instead of apk/pkg-helper.
+
 1. Check container logs: `docker logs <container> 2>&1 | grep pkg-helper`
 2. Verify the binary exists: `docker exec <container> ls -la /app/pkg-helper`
 3. If missing, the Docker image was NOT rebuilt after the pkg-helper v2 upgrade.
    Pull the new image and recreate the container.
 4. If the binary exists but the socket is missing, check that the container
    entrypoint starts the helper before the gateway: `ENTRYPOINT ["/app/entrypoint.sh"]`.
+
+### Bare-metal Ubuntu/Debian package table
+
+On bare-metal Ubuntu/Debian, system package install does not write the Alpine
+`apk-packages` persist file. GoClaw records successful apt installs in
+`{runtimeDir}/system-packages.json` and lists versions via `dpkg-query`.
+
+Alias examples:
+
+- Installing `pip3` records display name `pip3`, apt package `python3-pip`.
+- Installing `github-cli` records display name `github-cli`, apt package `gh`.
+
+The System Packages table should show the display name users installed, not the
+underlying Debian package alias.
+
+### Bare-metal npm global prefix
+
+On bare-metal Ubuntu/Debian, Node packages installed from the Packages page use
+`{runtimeDir}/npm-global` as `NPM_CONFIG_PREFIX`. This avoids writing to
+`/usr/lib/node_modules`, which is root-owned on standard Ubuntu installs.
 
 Logging: the gateway emits `slog.Info("package.update.apk.unavailable")` when
 the helper socket is unreachable. Grep for this key to confirm the symptom.
