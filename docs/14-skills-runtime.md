@@ -217,7 +217,7 @@ github:owner/repo[@tag]
 ```
 
 Admin-only, SHA256-verified, ELF-validated, with a release-picker UI. Binaries
-land in `/app/data/.runtime/bin/` (on `$PATH`). See
+land in `{runtimeDir}/bin/` (on `$PATH`). See
 [`docs/packages-github.md`](./packages-github.md) for syntax, configuration,
 security posture, and troubleshooting (especially musl/glibc compatibility).
 

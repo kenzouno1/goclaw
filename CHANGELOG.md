@@ -6,6 +6,10 @@ All notable changes to GoClaw are documented here. For full documentation, see [
 
 ### Added
 
+- **Skill agent manage grants** — Adds per-agent skill edit/delete grants with
+  backend checks, HTTP/WS support, SQLite and PostgreSQL schema updates, and web
+  dashboard controls for granting and revoking manage access.
+
 - **Packages Update Flow (Phase 2a: pip + npm)** — closes #900 (Phase 2a). Extends
   Phase 1 update infrastructure to pip and npm package sources. `/v1/packages/updates`
   now returns mixed-source results with an `availability: {github, pip, npm}` map.
@@ -76,6 +80,12 @@ All notable changes to GoClaw are documented here. For full documentation, see [
   template variables survive the agent pipeline round-trip.
 
 ### Fixed
+
+- **Skill grant tenant isolation.** Agent skill grants now validate both the
+  skill and agent tenant scope before insert, revoke, grant listing, or
+  can-manage checks. Visibility auto-promote/auto-demote updates are scoped to
+  the calling tenant or system skills so one tenant cannot mutate another
+  tenant's skill.
 
 - **Agent provider switching.** Saving an agent after changing provider/model now
   handles cleared ChatGPT OAuth routing config without writing SQL NULL into

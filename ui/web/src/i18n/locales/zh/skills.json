@@ -13,7 +13,8 @@
     "author": "作者",
     "visibility": "可见性",
     "status": "状态",
-    "actions": "操作"
+    "actions": "操作",
+    "owner": "所有者"
   },
   "noDescription": "暂无描述",
   "visibility": {
@@ -125,5 +126,24 @@
     "rescanUpdated": "已更新 {{count}} 个技能",
     "rescanNoChanges": "所有技能已是最新",
     "rescanFailed": "重新扫描依赖失败"
+  },
+  "owner": "所有者",
+  "unknownOwner": "未知",
+  "grants": {
+    "title": "{{name}} 的 Agent 权限",
+    "manage": "管理 Agent 权限",
+    "current": "当前 Agent 授权",
+    "none": "暂无 Agent 授权。",
+    "add": "添加授权",
+    "update": "更新授权",
+    "grant": "授权",
+    "save": "保存",
+    "revoke": "撤销授权",
+    "selectAgent": "选择 Agent",
+    "allowManage": "允许此 Agent 编辑或删除 Skill",
+    "canManage": "可编辑",
+    "loadFailed": "无法加载授权",
+    "saveFailed": "无法保存授权",
+    "revokeFailed": "无法撤销授权"
   }
 }

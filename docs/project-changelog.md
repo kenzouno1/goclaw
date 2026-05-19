@@ -6,6 +6,19 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-18
 
+### Packages: GitHub installer runtime path
+
+**Fixes**
+
+- Fixed GitHub Releases package installs on bare-metal gateways by defaulting the GitHub binary directory to `{runtimeDir}/bin` instead of Docker-only `/app/data/.runtime/bin`.
+- The fix covers installs such as `github:nextlevelbuilder/goclaw-cli@v0.4.1` on the VPS, where `/app` is not writable or present.
+
+**Tests**
+
+- Added default-path regression coverage and made Unix-socket apk helper tests skip cleanly on Windows environments that cannot bind Unix sockets.
+
+---
+
 ### Tools: built-in wait delay
 
 **Features**
@@ -55,6 +68,24 @@ Significant changes, features, and fixes in reverse chronological order.
 ---
 
 ## 2026-05-17
+
+### Skills: agent manage grants
+
+**Fixes**
+
+- Added explicit per-agent skill manage grants so agents can edit/delete skills they were authorized to maintain even when `owner_id` no longer matches their current actor identity.
+- Auto-granted manage permission to the creating/publishing agent for new managed skills.
+
+**UI**
+
+- Show custom skill owner IDs in the Skills table.
+- Added Skills page controls to grant agent skill access and edit/delete permission.
+
+**Tests**
+
+- Added PG/SQLite grant coverage and verified Go builds plus Web UI build.
+
+---
 
 ### Agents: provider switch save fix
 

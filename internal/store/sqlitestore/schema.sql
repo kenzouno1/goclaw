@@ -408,6 +408,7 @@ CREATE TABLE IF NOT EXISTS skill_agent_grants (
     agent_id       TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
     pinned_version INT NOT NULL,
     granted_by     VARCHAR(255) NOT NULL,
+    can_manage     INTEGER NOT NULL DEFAULT 0,
     tenant_id      TEXT NOT NULL REFERENCES tenants(id),
     created_at     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     UNIQUE(skill_id, agent_id)

@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useSkills, type SkillInfo } from "./hooks/use-skills";
 import { SkillDetailDialog } from "./skill-detail-dialog";
 import { SkillEditDialog } from "./skill-edit-dialog";
+import { SkillAgentGrantsDialog } from "./skill-agent-grants-dialog";
 
 const SkillUploadDialog = lazy(() =>
   import("./skill-upload-dialog").then((m) => ({ default: m.SkillUploadDialog }))
@@ -32,6 +33,7 @@ export function SkillsPage() {
   const { t } = useTranslation("skills");
   const {
     skills, loading, refresh, getSkill, uploadSkill, updateSkill, deleteSkill,
+    listAgentGrants, grantSkillToAgent, revokeSkillFromAgent,
     getSkillVersions, getSkillFiles, getSkillFileContent, rescanDeps, installSingleDep, toggleSkill,
     setTenantConfig, deleteTenantConfig,
   } = useSkills();
@@ -45,6 +47,7 @@ export function SkillsPage() {
   const [selectedSkill, setSelectedSkill] = useState<(SkillInfo & { content: string }) | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<SkillInfo | null>(null);
+  const [grantsTarget, setGrantsTarget] = useState<SkillInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SkillInfo | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [rescanning, setRescanning] = useState(false);
@@ -180,6 +183,7 @@ export function SkillsPage() {
                     toggling={toggling}
                     onView={handleViewSkill}
                     onEdit={setEditTarget}
+                    onManageGrants={setGrantsTarget}
                     onDelete={setDeleteTarget}
                     onToggle={handleToggle}
                     onCycleVisibility={handleCycleVisibility}
@@ -216,6 +220,16 @@ export function SkillsPage() {
           skill={editTarget}
           onClose={() => setEditTarget(null)}
           onSave={async (id, updates) => { await updateSkill(id, updates); setEditTarget(null); }}
+        />
+      )}
+
+      {grantsTarget && (
+        <SkillAgentGrantsDialog
+          skill={grantsTarget}
+          onClose={() => setGrantsTarget(null)}
+          onLoad={listAgentGrants}
+          onGrant={grantSkillToAgent}
+          onRevoke={revokeSkillFromAgent}
         />
       )}
 
