@@ -592,7 +592,7 @@ func buildToolingSection(toolNames []string, hasSandbox bool, shellDenyGroups ma
 		lines = append(lines,
 			"",
 			"### Media Files",
-			`When users send media (<media:image path="...">, <media:video id="...">, <media:audio id="...">, <media:document path="...">), use the corresponding read_* tool with the path/media_id.`,
+			`When users send media (<media:image path="...">, <media:video id="...">, <media:audio id="...">, <media:document path="...">), use the corresponding read_* tool with the path/media_id. For archives (.zip, .tar.gz, etc.), use exec with the document path to inspect/extract the archive.`,
 			"You have full vision/audio/video capabilities. NEVER say you cannot see images or files.",
 		)
 	}

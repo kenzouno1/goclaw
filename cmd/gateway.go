@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -49,6 +50,25 @@ import (
 	_ "github.com/nextlevelbuilder/goclaw/internal/workstation/backends"
 )
 
+func gatewayLogOutput() io.Writer {
+	logFile := strings.TrimSpace(os.Getenv("GOCLAW_LOG_FILE"))
+	if logFile == "" {
+		if st, err := os.Stat("/var/log/goclaw"); err == nil && st.IsDir() {
+			logFile = "/var/log/goclaw/goclaw.log"
+		}
+	}
+	if logFile == "" {
+		return os.Stdout
+	}
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: cannot open GOCLAW_LOG_FILE=%q: %v\n", logFile, err)
+		return os.Stdout
+	}
+	fmt.Fprintf(os.Stderr, "logging to %s\n", logFile)
+	return io.MultiWriter(os.Stdout, f)
+}
+
 func runGateway() {
 	// Setup structured logging
 	logLevel := slog.LevelInfo
@@ -70,9 +90,8 @@ func runGateway() {
 			fmt.Fprintf(os.Stderr, "warning: unknown GOCLAW_LOG_LEVEL=%q, using info\n", lvl)
 		}
 	}
-	textHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
-	})
+	logOutput := gatewayLogOutput()
+	textHandler := slog.NewTextHandler(logOutput, &slog.HandlerOptions{Level: logLevel})
 	logTee := gateway.NewLogTee(textHandler)
 	slog.SetDefault(slog.New(logTee))
 
