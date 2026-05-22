@@ -190,6 +190,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.beta_version.outputs.tag }}
         run: |
+          (cd artifacts && sha256sum goclaw-*.tar.gz > CHECKSUMS.sha256)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" \
               --title "GoClaw $TAG" \
@@ -325,3 +326,86 @@ jobs:
           else
             echo "::notice::Docker Hub secrets not configured; promoted GHCR beta aliases only."
           fi
+
+  deploy_zuey_beta:
+    needs: [beta_version, publish_release]
+    if: needs.beta_version.outputs.released == 'true' && github.repository == 'digitopvn/goclaw'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      GOCLAW_DEPLOY_URL: ${{ secrets.ZUEY_GOCLAW_URL }}
+      GOCLAW_GATEWAY_TOKEN: ${{ secrets.ZUEY_GOCLAW_GATEWAY_TOKEN }}
+      GOCLAW_UPGRADE_TOKEN: ${{ secrets.ZUEY_GOCLAW_UPGRADE_TOKEN }}
+      GOCLAW_DEPLOY_USER_ID: ${{ vars.ZUEY_GOCLAW_USER_ID || 'system' }}
+      TAG: ${{ needs.beta_version.outputs.tag }}
+    steps:
+      - name: Validate deploy configuration
+        run: |
+          missing=0
+          for name in GOCLAW_DEPLOY_URL GOCLAW_GATEWAY_TOKEN GOCLAW_UPGRADE_TOKEN TAG; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::${name} is not configured"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Trigger zuey gateway upgrade
+        run: |
+          base_url="${GOCLAW_DEPLOY_URL%/}"
+          body="$(mktemp)"
+          payload="$(printf '{"tag":"%s"}' "$TAG")"
+          status_code="$(curl -sS --retry 3 --retry-delay 2 \
+            -o "$body" \
+            -w "%{http_code}" \
+            -X POST "${base_url}/v1/system/gateway/upgrade" \
+            -H "Authorization: Bearer ${GOCLAW_GATEWAY_TOKEN}" \
+            -H "X-GoClaw-Upgrade-Token: ${GOCLAW_UPGRADE_TOKEN}" \
+            -H "X-GoClaw-User-Id: ${GOCLAW_DEPLOY_USER_ID}" \
+            -H "Content-Type: application/json" \
+            --data "$payload")"
+          if [[ "$status_code" != "202" ]]; then
+            echo "::error::gateway upgrade trigger failed with HTTP ${status_code}"
+            cat "$body"
+            exit 1
+          fi
+          cat "$body"
+
+      - name: Wait for zuey gateway upgrade
+        run: |
+          base_url="${GOCLAW_DEPLOY_URL%/}"
+          for attempt in {1..90}; do
+            status_json="$(curl -fsS --retry 3 --retry-delay 2 \
+              -H "Authorization: Bearer ${GOCLAW_GATEWAY_TOKEN}" \
+              -H "X-GoClaw-Upgrade-Token: ${GOCLAW_UPGRADE_TOKEN}" \
+              -H "X-GoClaw-User-Id: ${GOCLAW_DEPLOY_USER_ID}" \
+              "${base_url}/v1/system/gateway/upgrade/status")"
+            state="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("state", ""))' <<< "$status_json")"
+            if [[ "$state" == "succeeded" ]]; then
+              echo "$status_json"
+              exit 0
+            fi
+            if [[ "$state" == "failed" ]]; then
+              echo "::error::gateway upgrade failed"
+              echo "$status_json"
+              exit 1
+            fi
+            echo "upgrade state=${state:-unknown}; attempt ${attempt}/90"
+            sleep 10
+          done
+          echo "::error::gateway upgrade timed out"
+          exit 1
+
+      - name: Verify public health
+        run: |
+          base_url="${GOCLAW_DEPLOY_URL%/}"
+          health_json="$(curl -fsS --retry 5 --retry-delay 3 "${base_url}/health")"
+          status="$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status", ""))' <<< "$health_json")"
+          if [[ "$status" != "ok" ]]; then
+            echo "::error::unexpected health response"
+            echo "$health_json"
+            exit 1
+          fi
+          echo "$health_json"

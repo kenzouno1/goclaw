@@ -162,7 +162,7 @@ sudo /usr/local/bin/goclaw-upgrade-release latest
 sudo /usr/local/bin/goclaw-upgrade-release v3.12.0
 ```
 
-The script downloads the Linux amd64 GitHub Release tarball from `digitopvn/goclaw`, follows GitHub release redirects, verifies `CHECKSUMS.sha256`, extracts to `/opt/goclaw/releases/<tag>`, and calls `goclaw-deploy`.
+The script downloads the Linux amd64 GitHub Release tarball from `digitopvn/goclaw`, follows GitHub release redirects, verifies `CHECKSUMS.sha256` when present, falls back to the GitHub release asset SHA256 digest for beta assets without checksum files, extracts to `/opt/goclaw/releases/<tag>`, and calls `goclaw-deploy`.
 
 The HTTP API still accepts only `tag`; it does not accept repo names or custom download URLs.
 
@@ -187,6 +187,29 @@ curl -fsS "https://$GOCLAW_DOMAIN/v1/system/gateway/upgrade/status" \
 Keep upgrade tokens in server env files or secret managers. Do not put real tokens in docs.
 
 The remote trigger endpoint fails closed unless `GOCLAW_UPGRADE_TRIGGER_TOKEN` is configured in the gateway environment.
+
+### Automatic Beta Deploy From `dev`
+
+Pushing or merging into `dev` runs `.github/workflows/dev-beta-release.yaml`. After Go/Web checks pass, the workflow creates the next semantic beta tag, publishes the prerelease assets, promotes beta Docker aliases, then deploys that exact beta tag to the zuey VPS through the gateway upgrade endpoint.
+
+Required GitHub Actions configuration:
+
+| Name | Type | Value |
+|---|---|---|
+| `ZUEY_GOCLAW_URL` | Secret | Public gateway URL, for example `https://goclaw.zuey.me` |
+| `ZUEY_GOCLAW_GATEWAY_TOKEN` | Secret | Gateway bearer token from the server env |
+| `ZUEY_GOCLAW_UPGRADE_TOKEN` | Secret | Upgrade trigger token from the server env |
+| `ZUEY_GOCLAW_USER_ID` | Variable | Optional owner identity, defaults to `system` |
+
+The deploy job sends:
+
+```bash
+POST /v1/system/gateway/upgrade {"tag":"vX.Y.Z-beta.N"}
+GET /v1/system/gateway/upgrade/status
+GET /health
+```
+
+The workflow fails if the upgrade status becomes `failed`, times out, or public health does not return `{"status":"ok"}`.
 
 Manual local-build fallback:
 
