@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nextlevelbuilder/goclaw/internal/providers"
+	usagecaps "github.com/nextlevelbuilder/goclaw/internal/usage/caps"
 )
 
 // textReadableMIMEs are MIME types whose content can be returned directly without LLM analysis.
@@ -68,10 +69,15 @@ var documentModelDefaults = map[string]string{
 type ReadDocumentTool struct {
 	registry    *providers.Registry
 	mediaLoader MediaPathLoader
+	usageCaps   *usagecaps.Service
 }
 
 func NewReadDocumentTool(registry *providers.Registry, mediaLoader MediaPathLoader) *ReadDocumentTool {
 	return &ReadDocumentTool{registry: registry, mediaLoader: mediaLoader}
+}
+
+func (t *ReadDocumentTool) SetUsageCapService(svc *usagecaps.Service) {
+	t.usageCaps = svc
 }
 
 func (t *ReadDocumentTool) Name() string { return "read_document" }

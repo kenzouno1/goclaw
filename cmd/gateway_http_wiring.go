@@ -134,6 +134,9 @@ func (d *gatewayDeps) wireHTTPHandlersOnServer(
 	if d.pgStores.Snapshots != nil {
 		d.server.SetUsageHandler(httpapi.NewUsageHandler(d.pgStores.Snapshots, d.pgStores.DB))
 	}
+	if d.pgStores.UsageCaps != nil {
+		d.server.SetUsageCapsHandler(httpapi.NewUsageCapsHandler(d.pgStores.UsageCaps, d.pgStores.Tenants))
+	}
 
 	// Runtime package management (install/uninstall system/pip/npm/github packages)
 	// Wire the update registry AFTER initGitHubInstaller so DefaultGitHubInstaller() is set.

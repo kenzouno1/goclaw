@@ -25,6 +25,7 @@ import (
 	"github.com/nextlevelbuilder/goclaw/internal/store"
 	"github.com/nextlevelbuilder/goclaw/internal/tools"
 	"github.com/nextlevelbuilder/goclaw/internal/tracing"
+	usagecaps "github.com/nextlevelbuilder/goclaw/internal/usage/caps"
 )
 
 // ResolverDeps holds shared dependencies for the agent resolver.
@@ -97,6 +98,7 @@ type ResolverDeps struct {
 
 	// Tracing store for budget enforcement queries
 	TracingStore store.TracingStore
+	UsageCaps    *usagecaps.Service
 
 	// Memory store for extractive memory fallback
 	MemoryStore store.MemoryStore
@@ -528,6 +530,7 @@ func NewManagedResolver(deps ResolverDeps) ResolverFunc {
 			ModelPricing:           deps.ModelPricing,
 			BudgetMonthlyCents:     derefInt(ag.BudgetMonthlyCents),
 			TracingStore:           deps.TracingStore,
+			UsageCaps:              deps.UsageCaps,
 			MemoryStore:            deps.MemoryStore,
 			MCPStore:               deps.MCPStore,
 			MCPPool:                deps.MCPPool,

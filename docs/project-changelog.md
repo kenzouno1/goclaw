@@ -6,6 +6,23 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-22
 
+### Usage Cap budget controls
+
+**Features**
+
+- Added Standard/PostgreSQL usage caps for AI budget control by hour, day, week, or month.
+- Caps support token and USD cost ceilings at tenant, agent, provider, provider type, and model scopes.
+- Added OpenRouter catalog sync plus tenant/provider/model pricing overrides for input, output, cache read/write, reasoning, request, image, and web search units.
+- Enforced caps in agent, fallback model, subagent, memory flush, compaction, and media reading tools (`read_image`, `read_document`, `read_audio`, `read_video`) with preflight reservation and post-call reconciliation.
+- Added non-negative validation for catalog and override pricing fields.
+- Added OpenRouter alias resolution for native model IDs, cached-input accounting normalization, and partial-stream failure reconciliation.
+- Added web dashboard controls on Usage and Provider detail pages.
+
+**Tests**
+
+- Added pricing and cap service coverage.
+- Verified Go builds, SQLite build compatibility, full Go test suite, integration race suite, and Web UI production build.
+
 ### CLI P6 backend API unblock
 
 **Features**

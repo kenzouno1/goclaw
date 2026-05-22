@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/nextlevelbuilder/goclaw/internal/providers"
 	"github.com/nextlevelbuilder/goclaw/internal/store"
 	"github.com/nextlevelbuilder/goclaw/internal/tools"
+	usagecaps "github.com/nextlevelbuilder/goclaw/internal/usage/caps"
 	"github.com/nextlevelbuilder/goclaw/internal/workspace"
 	"github.com/nextlevelbuilder/goclaw/pkg/protocol"
 )
@@ -294,30 +296,75 @@ func (l *Loop) makeCallLLM(req *RunRequest, emitRun func(AgentEvent)) func(ctx c
 		}
 		spanID := l.emitLLMSpanStart(ctx, start, state.Iteration+1, chatReq.Messages, opts...)
 
-		var resp *providers.ChatResponse
-		var err error
-		if req.Stream {
-			resp, err = provider.ChatStream(ctx, chatReq, func(chunk providers.StreamChunk) {
-				if chunk.Thinking != "" {
-					emitRun(AgentEvent{
-						Type:    protocol.ChatEventThinking,
-						AgentID: l.id,
-						RunID:   req.RunID,
-						Payload: map[string]string{"content": chunk.Thinking},
-					})
-				}
-				if chunk.Content != "" {
-					emitRun(AgentEvent{
-						Type:    protocol.ChatEventChunk,
-						AgentID: l.id,
-						RunID:   req.RunID,
-						Payload: map[string]string{"content": chunk.Content},
-					})
-				}
-			})
-		} else {
-			resp, err = provider.Chat(ctx, chatReq)
+		emitChunk := func(chunk providers.StreamChunk) {
+			if chunk.Thinking != "" {
+				emitRun(AgentEvent{
+					Type:    protocol.ChatEventThinking,
+					AgentID: l.id,
+					RunID:   req.RunID,
+					Payload: map[string]string{"content": chunk.Thinking},
+				})
+			}
+			if chunk.Content != "" {
+				emitRun(AgentEvent{
+					Type:    protocol.ChatEventChunk,
+					AgentID: l.id,
+					RunID:   req.RunID,
+					Payload: map[string]string{"content": chunk.Content},
+				})
+			}
 		}
+		callProvider := func(attempt string, request providers.ChatRequest) (*providers.ChatResponse, error) {
+			if fallbackProvider, ok := provider.(*providers.ModelFallbackProvider); ok {
+				before := func(callCtx context.Context, entry providers.FallbackCandidate, actualReq providers.ChatRequest) (providers.FallbackAfterCall, error) {
+					candidateAttempt := fmt.Sprintf("%s:%s:%s", attempt, entry.ProviderName, actualReq.Model)
+					reservation, reserveErr := l.reserveLLMUsageFor(callCtx, req, state.Iteration, actualReq, candidateAttempt, entry.ProviderName, actualReq.Model)
+					if reserveErr != nil {
+						return nil, reserveErr
+					}
+					return func(callResp *providers.ChatResponse, callErr error, info providers.FallbackCallInfo) {
+						if reservation != nil {
+							if info.Streamed {
+								reservation.ReconcileStream(callCtx, callResp, callErr, true)
+							} else {
+								reservation.Reconcile(callCtx, callResp, callErr)
+							}
+						}
+					}, nil
+				}
+				if req.Stream {
+					return fallbackProvider.ChatStreamWithHook(ctx, request, emitChunk, before)
+				}
+				return fallbackProvider.ChatWithHook(ctx, request, before)
+			}
+			reservation, reserveErr := l.reserveLLMUsage(ctx, req, state, request, attempt)
+			if reserveErr != nil {
+				return nil, reserveErr
+			}
+			var callResp *providers.ChatResponse
+			var callErr error
+			if req.Stream {
+				streamed := false
+				callResp, callErr = provider.ChatStream(ctx, request, func(chunk providers.StreamChunk) {
+					if chunk.Content != "" || chunk.Thinking != "" || len(chunk.Images) > 0 {
+						streamed = true
+					}
+					emitChunk(chunk)
+				})
+				if reservation != nil {
+					reservation.ReconcileStream(ctx, callResp, callErr, streamed)
+				}
+				return callResp, callErr
+			} else {
+				callResp, callErr = provider.Chat(ctx, request)
+			}
+			if reservation != nil {
+				reservation.Reconcile(ctx, callResp, callErr)
+			}
+			return callResp, callErr
+		}
+
+		resp, err := callProvider("initial", chatReq)
 		slog.Info("debug.llm.first_response",
 			"has_error", err != nil,
 			"tool_calls_count", func() int {
@@ -342,28 +389,7 @@ func (l *Loop) makeCallLLM(req *RunRequest, emitRun func(AgentEvent)) func(ctx c
 				Role:    "system",
 				Content: "MCP task tools are available in this turn. Do not ask for CRM identifier/email first. Call the relevant MCP task tool immediately, then answer with the tool result.",
 			})
-			if req.Stream {
-				resp, err = provider.ChatStream(ctx, retryReq, func(chunk providers.StreamChunk) {
-					if chunk.Thinking != "" {
-						emitRun(AgentEvent{
-							Type:    protocol.ChatEventThinking,
-							AgentID: l.id,
-							RunID:   req.RunID,
-							Payload: map[string]string{"content": chunk.Thinking},
-						})
-					}
-					if chunk.Content != "" {
-						emitRun(AgentEvent{
-							Type:    protocol.ChatEventChunk,
-							AgentID: l.id,
-							RunID:   req.RunID,
-							Payload: map[string]string{"content": chunk.Content},
-						})
-					}
-				})
-			} else {
-				resp, err = provider.Chat(ctx, retryReq)
-			}
+			resp, err = callProvider("retry-tool-choice", retryReq)
 			slog.Info("debug.llm.retry_response",
 				"has_error", err != nil,
 				"tool_calls_count", func() int {
@@ -535,4 +561,31 @@ func (l *Loop) makeBootstrapCleanup() func(ctx context.Context, state *pipeline.
 		}
 		return l.bootstrapCleanup(ctx, l.agentUUID, state.Input.UserID)
 	}
+}
+
+func (l *Loop) reserveLLMUsage(ctx context.Context, req *RunRequest, state *pipeline.RunState, chatReq providers.ChatRequest, attempt string) (*usagecaps.Reservation, error) {
+	if l.usageCaps == nil || state.Provider == nil {
+		return nil, nil
+	}
+	return l.reserveLLMUsageFor(ctx, req, state.Iteration, chatReq, attempt, state.Provider.Name(), state.Model)
+}
+
+func (l *Loop) reserveLLMUsageFor(ctx context.Context, req *RunRequest, iteration int, chatReq providers.ChatRequest, attempt, providerName, model string) (*usagecaps.Reservation, error) {
+	if l.usageCaps == nil {
+		return nil, nil
+	}
+	tenantID := store.TenantIDFromContext(ctx)
+	if tenantID == uuid.Nil {
+		tenantID = l.tenantID
+	}
+	key := fmt.Sprintf("%s:%s:%d:%s", req.RunID, l.agentUUID.String(), iteration+1, attempt)
+	return l.usageCaps.Preflight(ctx, usagecaps.Request{
+		TenantID:        tenantID,
+		AgentID:         l.agentUUID,
+		ProviderName:    providerName,
+		ModelID:         model,
+		ReservationKey:  key,
+		Messages:        chatReq.Messages,
+		MaxOutputTokens: l.maxOutputTokensFromRequest(chatReq),
+	})
 }

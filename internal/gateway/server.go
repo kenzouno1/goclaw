@@ -634,6 +634,11 @@ func (s *Server) SetSystemConfigsHandler(h *httpapi.SystemConfigsHandler) {
 // SetUsageHandler sets the usage analytics handler.
 func (s *Server) SetUsageHandler(h *httpapi.UsageHandler) { s.handlers = append(s.handlers, h) }
 
+// SetUsageCapsHandler sets usage cap and model pricing handlers.
+func (s *Server) SetUsageCapsHandler(h *httpapi.UsageCapsHandler) {
+	s.handlers = append(s.handlers, h)
+}
+
 // SetBackupHandler sets the system backup handler.
 func (s *Server) SetBackupHandler(h *httpapi.BackupHandler) { s.handlers = append(s.handlers, h) }
 

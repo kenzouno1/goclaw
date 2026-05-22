@@ -31,6 +31,7 @@ import (
 	"github.com/nextlevelbuilder/goclaw/internal/store/pg"
 	"github.com/nextlevelbuilder/goclaw/internal/tools"
 	"github.com/nextlevelbuilder/goclaw/internal/tracing"
+	usagecaps "github.com/nextlevelbuilder/goclaw/internal/usage/caps"
 	"github.com/nextlevelbuilder/goclaw/pkg/protocol"
 )
 
@@ -58,6 +59,7 @@ func wireExtras(
 	sandboxMgr sandbox.Manager,
 	redisClient any, // nil when built without -tags redis or when Redis is unconfigured
 	domainBus eventbus.DomainEventBus,
+	usageCapSvc *usagecaps.Service,
 ) (*tools.ContextFileInterceptor, *mcpbridge.Pool, *media.Store, tools.PostTurnProcessor) {
 	// 1. Build cache instances (in-memory or Redis depending on build tags)
 	agentCtxCache, userCtxCache := makeCaches(redisClient)
@@ -82,9 +84,15 @@ func wireExtras(
 			}
 		}
 		// Register media analysis tools (need mediaStore for file access).
-		toolsReg.Register(tools.NewReadDocumentTool(providerReg, mediaStore))
-		toolsReg.Register(tools.NewReadAudioTool(providerReg, mediaStore))
-		toolsReg.Register(tools.NewReadVideoTool(providerReg, mediaStore))
+		readDocumentTool := tools.NewReadDocumentTool(providerReg, mediaStore)
+		readDocumentTool.SetUsageCapService(usageCapSvc)
+		toolsReg.Register(readDocumentTool)
+		readAudioTool := tools.NewReadAudioTool(providerReg, mediaStore)
+		readAudioTool.SetUsageCapService(usageCapSvc)
+		toolsReg.Register(readAudioTool)
+		readVideoTool := tools.NewReadVideoTool(providerReg, mediaStore)
+		readVideoTool.SetUsageCapService(usageCapSvc)
+		toolsReg.Register(readVideoTool)
 		toolsReg.Register(tools.NewCreateVideoTool(providerReg))
 		slog.Info("media tools registered", "tools", "read_document,read_audio,read_video,create_video")
 	}
@@ -228,6 +236,7 @@ func wireExtras(
 		MediaStore:             mediaStore,
 		ModelPricing:           appCfg.Telemetry.ModelPricing,
 		TracingStore:           stores.Tracing,
+		UsageCaps:              usageCapSvc,
 		MemoryStore:            stores.Memory,
 		ContactStore:           stores.Contacts,
 		TenantStore:            stores.Tenants,
