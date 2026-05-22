@@ -224,6 +224,13 @@ func init() {
 		MsgHookPerTurnCapReached:       "单轮钩子调用次数已达上限",
 		MsgHookBuiltinReadOnly:         "内置钩子只读,仅允许切换启用状态",
 
+		// Element / Matrix channel
+		MsgElementBothAuth:    "只能提供 access_token 或 (username + password) 其中之一,不能同时提供",
+		MsgElementNeitherAuth: "凭据必须包含 access_token 或 username + password",
+		MsgElementLoginFailed: "Matrix 登录失败: %s",
+		MsgElementHTTPSOnly:   "登录要求 HTTPS 服务器地址 (收到 http://%s);请使用 https:// 或本地地址",
+		MsgElementRateLimit:   "登录频率限制:上次尝试距今 %s (最小间隔 1 分钟)",
+
 		// Message tool cross-target forward notice
 		MessageCrossTargetForwarded: "📤 已按请求转发至 %s:%q",
 	})

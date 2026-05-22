@@ -1,3 +1,5 @@
+//go:build !sqliteonly
+
 package element
 
 import (
@@ -24,7 +26,10 @@ func (c *Channel) registerSyncHandlers() {
 	}
 
 	syncer.OnEventType(event.EventMessage, c.handleMessageEvent)
-	syncer.OnEventType(event.EventEncrypted, c.handleEncryptedEvent)
+	// NOTE: do NOT register EventEncrypted here — cryptohelper.Init (called in Start
+	// after registerSyncHandlers) registers its own handler via OnEventType.
+	// The helper auto-decrypts and re-dispatches as m.room.message, which our
+	// handleMessageEvent above then receives as plaintext.
 	if c.cfg.autoJoinInvites {
 		syncer.OnEventType(event.StateMember, c.handleMembershipEvent)
 	}
@@ -68,22 +73,36 @@ func (c *Channel) runSyncLoop(ctx context.Context) {
 
 // handleMessageEvent processes m.room.message events from the sync loop.
 func (c *Channel) handleMessageEvent(ctx context.Context, evt *event.Event) {
-	if evt == nil || evt.Sender == id.UserID(c.cfg.userID) {
+	if evt == nil {
+		return
+	}
+	if evt.Sender == id.UserID(c.cfg.userID) {
+		slog.Debug("element: skip own message",
+			"name", c.Name(), "event_id", evt.ID)
 		return
 	}
 	if evt.Timestamp < c.startupTS {
-		return // skip backfilled history older than channel start
+		slog.Debug("element: skip backfilled event older than startup",
+			"name", c.Name(), "event_id", evt.ID,
+			"event_ts", evt.Timestamp, "startup_ts", c.startupTS)
+		return
 	}
 	content, ok := evt.Content.Parsed.(*event.MessageEventContent)
 	if !ok || content == nil {
+		slog.Debug("element: skip event without parsed MessageEventContent",
+			"name", c.Name(), "event_id", evt.ID, "type", evt.Type.Type)
 		return
 	}
 	if content.MsgType != event.MsgText && content.MsgType != event.MsgNotice {
+		slog.Debug("element: skip non-text message",
+			"name", c.Name(), "event_id", evt.ID, "msgtype", content.MsgType)
 		return
 	}
 
 	body := content.Body
 	if body == "" {
+		slog.Debug("element: skip empty body",
+			"name", c.Name(), "event_id", evt.ID)
 		return
 	}
 
@@ -91,8 +110,23 @@ func (c *Channel) handleMessageEvent(ctx context.Context, evt *event.Event) {
 	senderID := string(evt.Sender)
 
 	if !c.IsAllowed(senderID) && !c.IsAllowed(roomID) {
+		// Loud enough that operators notice when an allowlist blocks real traffic.
+		slog.Info("element: message blocked by allow_from",
+			"name", c.Name(),
+			"sender", senderID,
+			"room_id", roomID,
+			"event_id", evt.ID,
+		)
 		return
 	}
+
+	slog.Info("element: inbound message",
+		"name", c.Name(),
+		"sender", senderID,
+		"room_id", roomID,
+		"event_id", evt.ID,
+		"bytes", len(body),
+	)
 
 	// Show typing indicator while the agent processes (auto-expires after 30s).
 	go c.signalTyping(evt.RoomID, true)
@@ -134,15 +168,6 @@ func (c *Channel) signalTyping(roomID id.RoomID, typing bool) {
 		slog.Debug("element: typing notification failed",
 			"name", c.Name(), "room_id", roomID, "typing", typing, "error", err)
 	}
-}
-
-// handleEncryptedEvent logs and skips m.room.encrypted events (E2EE not supported in v1).
-func (c *Channel) handleEncryptedEvent(_ context.Context, evt *event.Event) {
-	if evt == nil {
-		return
-	}
-	slog.Warn("element: encrypted event skipped (E2EE not supported)",
-		"name", c.Name(), "room_id", evt.RoomID, "event_id", evt.ID)
 }
 
 // handleMembershipEvent auto-joins rooms when our user is invited.

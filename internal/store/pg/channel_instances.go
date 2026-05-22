@@ -229,6 +229,31 @@ func (s *PGChannelInstanceStore) Update(ctx context.Context, id uuid.UUID, updat
 	return execMapUpdateWhereTenant(ctx, s.db, "channel_instances", updates, id, tid)
 }
 
+// UpdateCredentialsByName replaces the credentials blob for the named instance.
+// plaintext is raw JSON; the store encrypts it internally using its encKey.
+// Requires tenant_id in ctx; returns an error if missing (prevents cross-tenant writes).
+func (s *PGChannelInstanceStore) UpdateCredentialsByName(ctx context.Context, name string, plaintext []byte) error {
+	tid := store.TenantIDFromContext(ctx)
+	if tid == uuid.Nil {
+		return fmt.Errorf("tenant_id required for UpdateCredentialsByName")
+	}
+	var blob []byte
+	if len(plaintext) > 0 && s.encKey != "" {
+		enc, err := crypto.Encrypt(string(plaintext), s.encKey)
+		if err != nil {
+			return fmt.Errorf("encrypt credentials: %w", err)
+		}
+		blob = []byte(enc)
+	} else {
+		blob = plaintext
+	}
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE channel_instances SET credentials = $1, updated_at = NOW() WHERE name = $2 AND tenant_id = $3`,
+		blob, name, tid,
+	)
+	return err
+}
+
 // loadExistingCreds reads and decrypts the current credentials for merging.
 func (s *PGChannelInstanceStore) loadExistingCreds(ctx context.Context, id uuid.UUID) (map[string]any, error) {
 	var raw []byte

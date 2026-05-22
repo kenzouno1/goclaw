@@ -1,3 +1,5 @@
+//go:build !sqliteonly
+
 package element
 
 import (

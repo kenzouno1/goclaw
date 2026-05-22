@@ -228,6 +228,31 @@ func (s *SQLiteChannelInstanceStore) Update(ctx context.Context, id uuid.UUID, u
 	return execMapUpdateWhereTenant(ctx, s.db, "channel_instances", updates, id, tid)
 }
 
+// UpdateCredentialsByName replaces the credentials blob for the named instance.
+// plaintext is raw JSON; the store encrypts it internally using its encKey.
+// Requires tenant_id in ctx; returns an error if missing (prevents cross-tenant writes).
+func (s *SQLiteChannelInstanceStore) UpdateCredentialsByName(ctx context.Context, name string, plaintext []byte) error {
+	tid := store.TenantIDFromContext(ctx)
+	if tid == uuid.Nil {
+		return fmt.Errorf("tenant_id required for UpdateCredentialsByName")
+	}
+	var blob []byte
+	if len(plaintext) > 0 && s.encKey != "" {
+		enc, err := crypto.Encrypt(string(plaintext), s.encKey)
+		if err != nil {
+			return fmt.Errorf("encrypt credentials: %w", err)
+		}
+		blob = []byte(enc)
+	} else {
+		blob = plaintext
+	}
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE channel_instances SET credentials = ?, updated_at = ? WHERE name = ? AND tenant_id = ?`,
+		blob, time.Now(), name, tid,
+	)
+	return err
+}
+
 func (s *SQLiteChannelInstanceStore) loadExistingCreds(ctx context.Context, id uuid.UUID) (map[string]any, error) {
 	var raw []byte
 	err := s.db.QueryRowContext(ctx, "SELECT credentials FROM channel_instances WHERE id = ?", id).Scan(&raw)

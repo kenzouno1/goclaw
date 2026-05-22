@@ -82,7 +82,26 @@ export const credentialsSchema: Record<string, FieldDef[]> = {
     { key: "webhook_secret", label: "Webhook Secret (Optional)", type: "password", help: "HMAC-SHA256 secret for webhook signature verification. Leave empty to skip verification." },
   ],
   element: [
-    { key: "access_token", label: "Matrix Access Token", type: "password", required: true, placeholder: "mpt_... or syt_...", help: "Long-lived access token for the bot's Matrix user. From MAS or `curl /_matrix/client/v3/login`." },
+    { key: "auth_method", label: "Auth Method", type: "select", required: true, defaultValue: "token",
+      options: [
+        { value: "token", label: "Access Token (legacy)" },
+        { value: "login", label: "Username + Password" },
+      ],
+      help: "Choose how the bot authenticates with the homeserver." },
+    { key: "access_token", label: "Matrix Access Token", type: "password",
+      placeholder: "mpt_... or syt_...",
+      help: "Long-lived access token for the bot's Matrix user. From MAS or `curl /_matrix/client/v3/login`.",
+      showWhen: { key: "auth_method", value: "token" } },
+    { key: "username", label: "Matrix Username", type: "text",
+      placeholder: "@bot:example.com or just bot",
+      help: "Full Matrix ID or localpart. The gateway will call /login and persist the issued token.",
+      showWhen: { key: "auth_method", value: "login" } },
+    { key: "password", label: "Matrix Password", type: "password",
+      help: "Password for the bot account. Cleared from storage after first login unless Keep Password is enabled.",
+      showWhen: { key: "auth_method", value: "login" } },
+    { key: "keep_password", label: "Keep Password", type: "boolean", defaultValue: false,
+      help: "Retain password in encrypted storage after login (useful if the access token can expire).",
+      showWhen: { key: "auth_method", value: "login" } },
   ],
 };
 
@@ -244,7 +263,11 @@ export const configSchema: Record<string, FieldDef[]> = {
     { key: "inbound_enabled", label: "Inbound Enabled", type: "boolean", defaultValue: true, help: "Receive Matrix room messages via /sync long-poll." },
     { key: "auto_join_invites", label: "Auto-Join Invites", type: "boolean", defaultValue: true, help: "Automatically join rooms when invited.", showWhen: { key: "inbound_enabled", value: "true" } },
     { key: "history_limit", label: "Group History Limit", type: "number", defaultValue: 50, help: "Max pending messages kept for context per room (0 = disabled)" },
-    { key: "allow_from", label: "Allowed Senders", type: "tags", help: "Matrix user IDs (@user:server) or room IDs (!room:server). Empty = accept all." },
+    { key: "allow_from", label: "Allowed Senders", type: "tags", help: "Matrix user IDs (@user:server) or room IDs (!room:server). Leave empty to accept messages from every room and sender (default). Add entries only to restrict." },
+    { key: "allow_verify_from", label: "Verification Allowlist", type: "tags", advanced: true,
+      help: "Matrix user IDs (e.g. @alice:matrix.org) allowed to verify this bot via SAS (emoji compare) from their Element client. Empty disables interactive verification. Each user gains the ability to sign the bot's master key — treat additions with caution." },
+    { key: "disable_cross_signing", label: "Disable Cross-Signing", type: "boolean", defaultValue: false, advanced: true,
+      help: "Skip cross-signing key upload on startup. Useful when the homeserver (e.g. MAS deployment without MSC3967) cannot accept the upload, or when cross-signing is managed externally. Bot's device will appear unverified in user clients." },
   ],
 };
 

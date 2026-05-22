@@ -48,18 +48,12 @@ COPY --from=web-dist /app/dist /src/internal/webui/dist
 RUN set -eux; \
     if [ -z "$VERSION" ] && [ -f VERSION ]; then VERSION=$(cat VERSION); fi; \
     if [ -z "$VERSION" ]; then VERSION="dev"; fi; \
-    TAGS=""; \
-    if [ "$ENABLE_EMBEDUI" = "true" ]; then TAGS="embedui"; fi; \
-    if [ "$ENABLE_OTEL" = "true" ]; then \
-        if [ -n "$TAGS" ]; then TAGS="$TAGS,otel"; else TAGS="otel"; fi; \
-    fi; \
-    if [ "$ENABLE_TSNET" = "true" ]; then \
-        if [ -n "$TAGS" ]; then TAGS="$TAGS,tsnet"; else TAGS="tsnet"; fi; \
-    fi; \
-    if [ "$ENABLE_REDIS" = "true" ]; then \
-        if [ -n "$TAGS" ]; then TAGS="$TAGS,redis"; else TAGS="redis"; fi; \
-    fi; \
-    if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi; \
+    TAGS="goolm"; \
+    if [ "$ENABLE_EMBEDUI" = "true" ]; then TAGS="$TAGS,embedui"; fi; \
+    if [ "$ENABLE_OTEL" = "true" ]; then TAGS="$TAGS,otel"; fi; \
+    if [ "$ENABLE_TSNET" = "true" ]; then TAGS="$TAGS,tsnet"; fi; \
+    if [ "$ENABLE_REDIS" = "true" ]; then TAGS="$TAGS,redis"; fi; \
+    TAGS="-tags $TAGS"; \
     CGO_ENABLED=0 GOOS=linux \
     go build -ldflags="-s -w -X github.com/nextlevelbuilder/goclaw/cmd.Version=${VERSION}" \
     ${TAGS} -o /out/goclaw . && \

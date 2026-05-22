@@ -224,6 +224,13 @@ func init() {
 		MsgHookPerTurnCapReached:       "hook invocation per-turn cap reached",
 		MsgHookBuiltinReadOnly:         "builtin hooks are read-only except for the enabled toggle",
 
+		// Element / Matrix channel
+		MsgElementBothAuth:    "specify either access_token OR (username + password), not both",
+		MsgElementNeitherAuth: "credentials must include either access_token or username + password",
+		MsgElementLoginFailed: "Matrix login failed: %s",
+		MsgElementHTTPSOnly:   "login requires HTTPS homeserver (got http://%s); use https:// or a local address",
+		MsgElementRateLimit:   "login rate limit: last attempt was %s ago (min interval 1m)",
+
 		// Message tool cross-target forward notice
 		MessageCrossTargetForwarded: "📤 Forwarded to %s as requested: %q",
 	})

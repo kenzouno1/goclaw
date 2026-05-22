@@ -224,6 +224,13 @@ func init() {
 		MsgHookPerTurnCapReached:       "đã đạt giới hạn số lần gọi hook trong một lượt",
 		MsgHookBuiltinReadOnly:         "hook dựng sẵn chỉ cho phép bật/tắt, không thể chỉnh sửa",
 
+		// Element / Matrix channel
+		MsgElementBothAuth:    "chỉ được cung cấp access_token HOẶC (username + password), không được cả hai",
+		MsgElementNeitherAuth: "thông tin xác thực cần có access_token hoặc username + password",
+		MsgElementLoginFailed: "đăng nhập Matrix thất bại: %s",
+		MsgElementHTTPSOnly:   "đăng nhập yêu cầu homeserver HTTPS (nhận được http://%s); dùng https:// hoặc địa chỉ local",
+		MsgElementRateLimit:   "giới hạn tốc độ đăng nhập: lần thử trước cách %s (khoảng cách tối thiểu 1 phút)",
+
 		// Message tool cross-target forward notice
 		MessageCrossTargetForwarded: "📤 Đã forward sang %s theo yêu cầu: %q",
 	})

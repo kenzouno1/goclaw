@@ -2,21 +2,21 @@ VERSION ?= $(shell git describe --tags --abbrev=0 --match "v[0-9]*" 2>/dev/null 
 LDFLAGS  = -s -w -X github.com/nextlevelbuilder/goclaw/cmd.Version=$(VERSION)
 BINARY   = goclaw
 
-.PHONY: build build-full build-tui run clean version up up-build down logs reset test vet check-web dev migrate setup ci desktop-dev desktop-build desktop-dmg test-hooks test-hooks-unit test-hooks-e2e test-hooks-chaos test-hooks-rbac test-hooks-tracing
+.PHONY: build build-full build-tui run clean version up up-build down logs reset test vet check-web dev dev-backend dev-all migrate setup ci desktop-dev desktop-build desktop-dmg test-hooks test-hooks-unit test-hooks-e2e test-hooks-chaos test-hooks-rbac test-hooks-tracing
 
 # Build backend only (API-only, no embedded web UI)
 build:
-	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BINARY) .
+	CGO_ENABLED=0 go build -tags goolm -ldflags="$(LDFLAGS)" -o $(BINARY) .
 
 # Build with embedded web UI (recommended for production)
 build-full: check-web
 	rm -rf internal/webui/dist && mkdir -p internal/webui/dist
 	cp -r ui/web/dist/* internal/webui/dist/
-	CGO_ENABLED=0 go build -tags embedui -ldflags="$(LDFLAGS)" -o $(BINARY) .
+	CGO_ENABLED=0 go build -tags goolm,embedui -ldflags="$(LDFLAGS)" -o $(BINARY) .
 
 # Build with TUI (Bubble Tea enhanced CLI)
 build-tui:
-	CGO_ENABLED=0 go build -tags tui -ldflags="$(LDFLAGS)" -o $(BINARY) .
+	CGO_ENABLED=0 go build -tags goolm,tui -ldflags="$(LDFLAGS)" -o $(BINARY) .
 
 run: build
 	./$(BINARY)
@@ -129,6 +129,19 @@ check-web:
 
 dev:
 	cd ui/web && pnpm dev
+
+dev-backend:
+	air
+
+# Run backend (air) and web UI (pnpm dev) concurrently.
+# Requires `air` on PATH. Ctrl-C stops both.
+dev-all:
+	@command -v air >/dev/null 2>&1 || { echo "air not found. Install: go install github.com/air-verse/air@latest"; exit 1; }
+	@echo "Starting backend (air) + web UI (pnpm dev)…"
+	@trap 'kill 0' INT TERM EXIT; \
+		air & \
+		(cd ui/web && pnpm dev) & \
+		wait
 
 migrate:
 	$(COMPOSE) run --rm goclaw migrate up
