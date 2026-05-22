@@ -165,8 +165,26 @@ export function ChannelInstanceFormDialog({
       }
     }
 
+    // Drop credential fields whose `showWhen` condition is not satisfied by the
+    // current form state. Without this, switching auth_method (or any branching
+    // selector) leaks stale values from the inactive branch into the request,
+    // which then merges into stored credentials and produces inconsistent state.
+    const credSchema = credentialsSchema[values.channelType] ?? [];
+    const fieldByKey = new Map(credSchema.map((f) => [f.key, f]));
+    const isFieldActive = (key: string): boolean => {
+      const field = fieldByKey.get(key);
+      if (!field?.showWhen) return true;
+      const depField = fieldByKey.get(field.showWhen.key);
+      const depValue = credsValues[field.showWhen.key] ?? depField?.defaultValue;
+      const depStr = depValue !== undefined && depValue !== null ? String(depValue) : "";
+      return Array.isArray(field.showWhen.value)
+        ? field.showWhen.value.includes(depStr)
+        : depStr === field.showWhen.value;
+    };
     const cleanCreds = Object.fromEntries(
-      Object.entries(credsValues).filter(([, v]) => v !== undefined && v !== "" && v !== null),
+      Object.entries(credsValues).filter(
+        ([k, v]) => v !== undefined && v !== "" && v !== null && isFieldActive(k),
+      ),
     );
 
     setLoading(true);

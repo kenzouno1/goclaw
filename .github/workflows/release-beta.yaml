@@ -50,7 +50,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           VERSION: ${{ github.ref_name }}
         run: |
-          CGO_ENABLED=0 go build -tags embedui \
+          CGO_ENABLED=0 go build -tags goolm,embedui \
             -ldflags="-s -w -X github.com/nextlevelbuilder/goclaw/cmd.Version=${VERSION}" \
             -o goclaw .
           tar -czf "goclaw-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" goclaw migrations/

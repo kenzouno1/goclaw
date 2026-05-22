@@ -49,6 +49,11 @@ type ChannelInstanceStore interface {
 	Get(ctx context.Context, id uuid.UUID) (*ChannelInstanceData, error)
 	GetByName(ctx context.Context, name string) (*ChannelInstanceData, error)
 	Update(ctx context.Context, id uuid.UUID, updates map[string]any) error
+	// UpdateCredentialsByName replaces the credentials blob for the named instance.
+	// plaintext is the raw JSON credentials — the store encrypts it internally using its encKey.
+	// Requires a tenant_id in ctx; returns an error if missing.
+	// Used by channel factories that need to persist mutated credentials (e.g. Element login flow).
+	UpdateCredentialsByName(ctx context.Context, name string, plaintext []byte) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListEnabled(ctx context.Context) ([]ChannelInstanceData, error)
 	ListAll(ctx context.Context) ([]ChannelInstanceData, error)

@@ -228,4 +228,11 @@ const (
 	MsgHookBudgetExceeded          = "hook.budget_exceeded"           // "tenant hook token budget exceeded"
 	MsgHookPerTurnCapReached       = "hook.per_turn_cap_reached"      // "hook invocation per-turn cap reached"
 	MsgHookBuiltinReadOnly         = "hook.builtin_readonly"          // "builtin hooks are read-only except for the enabled toggle"
+
+	// --- Element / Matrix channel ---
+	MsgElementBothAuth    = "error.element_both_auth"    // "specify either access_token OR (username + password), not both"
+	MsgElementNeitherAuth = "error.element_neither_auth" // "credentials must include either access_token or username + password"
+	MsgElementLoginFailed = "error.element_login_failed" // "Matrix login failed: %s"
+	MsgElementHTTPSOnly   = "error.element_https_only"   // "login requires HTTPS homeserver (got http://%s)"
+	MsgElementRateLimit   = "error.element_rate_limit"   // "login rate limit: last attempt was %s ago"
 )

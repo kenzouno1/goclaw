@@ -32,19 +32,46 @@ var reloadStartTimeout = 90 * time.Second
 type ChannelFactory func(name string, creds json.RawMessage, cfg json.RawMessage,
 	msgBus *bus.MessageBus, pairingSvc store.PairingStore) (Channel, error)
 
+// ContextualChannelFactory is like ChannelFactory but also receives the caller's
+// context (with tenant_id set). Use RegisterContextualFactory for channel types
+// that require tenant context during construction (e.g. Element's login write-back).
+type ContextualChannelFactory func(ctx context.Context, name string, creds json.RawMessage, cfg json.RawMessage,
+	msgBus *bus.MessageBus, pairingSvc store.PairingStore) (Channel, error)
+
+// CredsWriter is an optional write-back interface for channel factories that
+// need to persist mutated credentials (e.g. Element login flow persists the
+// issued device_id + access_token back to the encrypted DB blob).
+// plaintext is raw JSON credentials — the store is responsible for encryption.
+type CredsWriter interface {
+	UpdateCredentials(ctx context.Context, instanceID string, plaintext []byte) error
+}
+
+// ChannelInstanceCredsWriter adapts store.ChannelInstanceStore to the CredsWriter interface.
+// instanceID is the channel instance name (used as the lookup key for the DB row).
+type ChannelInstanceCredsWriter struct {
+	Store store.ChannelInstanceStore
+}
+
+// UpdateCredentials persists plaintext JSON credentials for the named instance.
+// Encryption is handled by the store layer.
+func (w ChannelInstanceCredsWriter) UpdateCredentials(ctx context.Context, instanceID string, plaintext []byte) error {
+	return w.Store.UpdateCredentialsByName(ctx, instanceID, plaintext)
+}
+
 // InstanceLoader loads channel instances from the database and registers them with the Manager.
 // Follows a load-all-at-startup pattern with cache invalidation for reload.
 type InstanceLoader struct {
-	store             store.ChannelInstanceStore
-	agentStore        store.AgentStore
-	providerReg       *providers.Registry
-	pendingCompactCfg *config.PendingCompactionConfig
-	factories         map[string]ChannelFactory
-	manager           *Manager
-	msgBus            *bus.MessageBus
-	pairingSvc        store.PairingStore
-	mu                sync.Mutex
-	loaded            map[string]struct{} // channel names managed by this loader
+	store              store.ChannelInstanceStore
+	agentStore         store.AgentStore
+	providerReg        *providers.Registry
+	pendingCompactCfg  *config.PendingCompactionConfig
+	factories          map[string]ChannelFactory
+	contextualFactories map[string]ContextualChannelFactory
+	manager            *Manager
+	msgBus             *bus.MessageBus
+	pairingSvc         store.PairingStore
+	mu                 sync.Mutex
+	loaded             map[string]struct{} // channel names managed by this loader
 }
 
 // NewInstanceLoader creates a new InstanceLoader.
@@ -56,13 +83,14 @@ func NewInstanceLoader(
 	pairingSvc store.PairingStore,
 ) *InstanceLoader {
 	return &InstanceLoader{
-		store:      s,
-		agentStore: agentStore,
-		factories:  make(map[string]ChannelFactory),
-		manager:    mgr,
-		msgBus:     msgBus,
-		pairingSvc: pairingSvc,
-		loaded:     make(map[string]struct{}),
+		store:               s,
+		agentStore:          agentStore,
+		factories:           make(map[string]ChannelFactory),
+		contextualFactories: make(map[string]ContextualChannelFactory),
+		manager:             mgr,
+		msgBus:              msgBus,
+		pairingSvc:          pairingSvc,
+		loaded:              make(map[string]struct{}),
 	}
 }
 
@@ -81,6 +109,12 @@ func (l *InstanceLoader) SetPendingCompactionConfig(cfg *config.PendingCompactio
 // RegisterFactory registers a factory for a channel type (e.g., "telegram", "discord").
 func (l *InstanceLoader) RegisterFactory(channelType string, factory ChannelFactory) {
 	l.factories[channelType] = factory
+}
+
+// RegisterContextualFactory registers a ContextualChannelFactory for channel types that need
+// the caller's context (with tenant_id) during construction (e.g. Element login write-back).
+func (l *InstanceLoader) RegisterContextualFactory(channelType string, factory ContextualChannelFactory) {
+	l.contextualFactories[channelType] = factory
 }
 
 // LoadAll loads all enabled channel instances from the database, creates channels, and registers them.
@@ -213,6 +247,24 @@ func (l *InstanceLoader) LoadedNames() map[string]struct{} {
 func (l *InstanceLoader) loadInstance(ctx context.Context, inst store.ChannelInstanceData, autoStart bool) error {
 	l.loaded[inst.Name] = struct{}{}
 
+	// Normalize config: convert string "true"/"false" to JSON booleans.
+	// Older UI versions saved select-based bool fields as strings.
+	cfg := coerceStringBools(inst.Config)
+
+	// Build a tenant-scoped context for this specific instance. Used by contextual factories
+	// (e.g. Element) that need to write back credentials under the correct tenant.
+	instCtx := store.WithTenantID(ctx, inst.TenantID)
+
+	// Prefer contextual factory (receives tenant-scoped ctx) over plain factory.
+	if ctxFactory, ok := l.contextualFactories[inst.ChannelType]; ok {
+		ch, err := ctxFactory(instCtx, inst.Name, inst.Credentials, cfg, l.msgBus, l.pairingSvc)
+		if err != nil {
+			l.manager.RecordFailureForType(inst.Name, inst.ChannelType, "", err)
+			return err
+		}
+		return l.finishLoadInstance(instCtx, inst, ch, autoStart)
+	}
+
 	factory, ok := l.factories[inst.ChannelType]
 	if !ok {
 		l.manager.RecordHealth(inst.Name, NewChannelHealthForType(
@@ -227,15 +279,17 @@ func (l *InstanceLoader) loadInstance(ctx context.Context, inst store.ChannelIns
 		return nil
 	}
 
-	// Normalize config: convert string "true"/"false" to JSON booleans.
-	// Older UI versions saved select-based bool fields as strings.
-	cfg := coerceStringBools(inst.Config)
-
 	ch, err := factory(inst.Name, inst.Credentials, cfg, l.msgBus, l.pairingSvc)
 	if err != nil {
 		l.manager.RecordFailureForType(inst.Name, inst.ChannelType, "", err)
 		return err
 	}
+	return l.finishLoadInstance(instCtx, inst, ch, autoStart)
+}
+
+// finishLoadInstance completes channel registration after the factory has produced a Channel.
+// instCtx must have tenant_id set (used for agent lookup and downstream operations).
+func (l *InstanceLoader) finishLoadInstance(instCtx context.Context, inst store.ChannelInstanceData, ch Channel, autoStart bool) error {
 	if ch == nil {
 		l.manager.RecordHealth(inst.Name, NewChannelHealthForType(
 			inst.ChannelType,
@@ -250,8 +304,6 @@ func (l *InstanceLoader) loadInstance(ctx context.Context, inst store.ChannelIns
 	}
 
 	// Resolve agent_key from UUID — the routing system (Router, session keys) uses agent_key, not UUID.
-	// Use the instance's tenant_id to scope the agent lookup.
-	instCtx := store.WithTenantID(ctx, inst.TenantID)
 	var ag *store.AgentData
 	if base, ok := ch.(interface{ SetAgentID(string) }); ok {
 		var err error
@@ -282,10 +334,8 @@ func (l *InstanceLoader) loadInstance(ctx context.Context, inst store.ChannelIns
 		var p providers.Provider
 		var model string
 
-		// Try config-level provider/model first.
-		tctx := store.WithTenantID(ctx, inst.TenantID)
 		if l.pendingCompactCfg != nil && l.pendingCompactCfg.Provider != "" {
-			if cp, err := l.providerReg.Get(tctx, l.pendingCompactCfg.Provider); err == nil {
+			if cp, err := l.providerReg.Get(instCtx, l.pendingCompactCfg.Provider); err == nil {
 				p = cp
 				model = l.pendingCompactCfg.Model
 				if model == "" {
@@ -332,13 +382,8 @@ func (l *InstanceLoader) loadInstance(ctx context.Context, inst store.ChannelIns
 	l.manager.RegisterChannel(inst.Name, ch)
 
 	// Start the channel if requested (Reload path). LoadAll defers to StartAll.
-	// Bound the wait so one hung Start() can't block Reload()'s mutex and wedge
-	// every subsequent reload. Important: we pass the caller's ctx (not a
-	// timeout-wrapped one) to ch.Start so long-running goroutines the channel
-	// derives from it — e.g. Telegram's pollCtx — are not cancelled out from
-	// under a successful start.
 	if autoStart {
-		l.startChannelWithTimeout(ctx, inst, ch)
+		l.startChannelWithTimeout(instCtx, inst, ch)
 	}
 
 	slog.Info("channel instance loaded",
