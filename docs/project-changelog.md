@@ -10,11 +10,13 @@ Significant changes, features, and fixes in reverse chronological order.
 
 **Features**
 
+- Added per-agent inbound debounce override via `other_config.inbound_debounce_ms`; unset inherits the global gateway setting.
 - Added Web Chat debounce for rapid text-only `chat.send` calls using `gateway.inbound_debounce_ms`.
 - Clarified shared inbound debounce behavior in docs and Web UI config help text.
 
 **Fixes**
 
+- Fixed inbound debounce semantics so `gateway.inbound_debounce_ms=0` means no debounce and positive values set the wait window.
 - Fixed Slack `debounce_delay: 0` so it disables per-thread batching instead of falling back to the default.
 
 **Tests**

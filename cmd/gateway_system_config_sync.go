@@ -78,6 +78,9 @@ func seedConfigForContext(ctx context.Context, sc store.SystemConfigStore, cfg *
 			set(key, fmt.Sprintf("%d", val))
 		}
 	}
+	setIntAllowZero := func(key string, val int) {
+		set(key, fmt.Sprintf("%d", val))
+	}
 	setBool := func(key string, val *bool) {
 		if val != nil {
 			set(key, fmt.Sprintf("%t", *val))
@@ -102,7 +105,7 @@ func seedConfigForContext(ctx context.Context, sc store.SystemConfigStore, cfg *
 	setInt("gateway.rate_limit_rpm", cfg.Gateway.RateLimitRPM)
 	setInt("gateway.max_message_chars", cfg.Gateway.MaxMessageChars)
 	set("gateway.injection_action", cfg.Gateway.InjectionAction)
-	setInt("gateway.inbound_debounce_ms", cfg.Gateway.InboundDebounceMs)
+	setIntAllowZero("gateway.inbound_debounce_ms", cfg.Gateway.InboundDebounceMs)
 	setBool("gateway.block_reply", cfg.Gateway.BlockReply)
 	setBool("gateway.tool_status", cfg.Gateway.ToolStatus)
 	setInt("gateway.task_recovery_interval_sec", cfg.Gateway.TaskRecoveryIntervalSec)

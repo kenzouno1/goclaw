@@ -16,10 +16,10 @@ import (
 // InboundDebouncer buffers rapid inbound messages from the same sender
 // and merges them into a single message before calling flushFn.
 type InboundDebouncer struct {
-	debounceMs time.Duration
-	mu         sync.Mutex
-	buffers    map[string]*debounceBuffer
-	flushFn    func(InboundMessage)
+	delayFn func(InboundMessage) time.Duration
+	mu      sync.Mutex
+	buffers map[string]*debounceBuffer
+	flushFn func(InboundMessage)
 }
 
 type debounceBuffer struct {
@@ -30,18 +30,30 @@ type debounceBuffer struct {
 // NewInboundDebouncer creates a debouncer with the given window and flush callback.
 // If debounceMs <= 0, messages are passed through immediately (debouncing disabled).
 func NewInboundDebouncer(debounceMs time.Duration, flushFn func(InboundMessage)) *InboundDebouncer {
+	return NewInboundDebouncerFunc(func(InboundMessage) time.Duration {
+		return debounceMs
+	}, flushFn)
+}
+
+// NewInboundDebouncerFunc creates a debouncer whose window can vary per message.
+func NewInboundDebouncerFunc(delayFn func(InboundMessage) time.Duration, flushFn func(InboundMessage)) *InboundDebouncer {
+	if delayFn == nil {
+		delayFn = func(InboundMessage) time.Duration { return 0 }
+	}
 	return &InboundDebouncer{
-		debounceMs: debounceMs,
-		buffers:    make(map[string]*debounceBuffer),
-		flushFn:    flushFn,
+		delayFn: delayFn,
+		buffers: make(map[string]*debounceBuffer),
+		flushFn: flushFn,
 	}
 }
 
 // Push adds a message to the debounce buffer.
 // If debouncing is disabled or the message should bypass (media), it is flushed immediately.
 func (d *InboundDebouncer) Push(msg InboundMessage) {
+	debounceMs := d.delayFn(msg)
+
 	// Disabled: pass through immediately.
-	if d.debounceMs <= 0 {
+	if debounceMs <= 0 {
 		d.flushFn(msg)
 		return
 	}
@@ -70,13 +82,13 @@ func (d *InboundDebouncer) Push(msg InboundMessage) {
 	if buf.timer != nil {
 		buf.timer.Stop()
 	}
-	buf.timer = time.AfterFunc(d.debounceMs, func() {
+	buf.timer = time.AfterFunc(debounceMs, func() {
 		d.flushKey(key)
 	})
 
 	if len(buf.messages) == 1 {
 		slog.Debug("inbound debounce: buffering",
-			"key", key, "debounce_ms", d.debounceMs.Milliseconds())
+			"key", key, "debounce_ms", debounceMs.Milliseconds())
 	} else {
 		slog.Debug("inbound debounce: message appended",
 			"key", key, "buffered", len(buf.messages))
@@ -127,9 +139,9 @@ func (d *InboundDebouncer) flushKey(key string) {
 	d.flushFn(merged)
 }
 
-// debounceKey builds the buffer key: channel:chatID:senderID.
+// debounceKey builds the buffer key: channel:chatID:senderID:agentID.
 func debounceKey(msg InboundMessage) string {
-	return msg.Channel + ":" + msg.ChatID + ":" + msg.SenderID
+	return msg.Channel + ":" + msg.ChatID + ":" + msg.SenderID + ":" + msg.AgentID
 }
 
 // mergeInboundMessages combines multiple messages into one.

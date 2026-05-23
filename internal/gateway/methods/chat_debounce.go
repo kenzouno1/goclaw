@@ -2,6 +2,7 @@ package methods
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/nextlevelbuilder/goclaw/internal/agent"
 	"github.com/nextlevelbuilder/goclaw/internal/config"
 	"github.com/nextlevelbuilder/goclaw/internal/gateway"
+	"github.com/nextlevelbuilder/goclaw/internal/store"
 )
 
 type chatSendRequest struct {
@@ -127,13 +129,16 @@ func mergeChatSendRequests(items []chatSendRequest) chatSendParams {
 	return last
 }
 
-func chatDebounceDelay(cfg *config.Config) time.Duration {
+func chatDebounceDelay(cfg *config.Config, agentOtherConfig json.RawMessage) time.Duration {
 	debounceMs := 0
 	if cfg != nil {
 		debounceMs = cfg.Gateway.InboundDebounceMs
 	}
-	if debounceMs == 0 {
-		debounceMs = 1000
+	if overrideMs, ok := store.ParseInboundDebounceMsFromOtherConfig(agentOtherConfig); ok {
+		debounceMs = overrideMs
+	}
+	if debounceMs <= 0 {
+		return 0
 	}
 	return time.Duration(debounceMs) * time.Millisecond
 }

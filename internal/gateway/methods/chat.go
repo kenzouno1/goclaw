@@ -217,7 +217,7 @@ func (m *ChatMethods) handleSend(ctx context.Context, client *gateway.Client, re
 		m.dispatchChatSends(append(pending, item))
 		return
 	}
-	if delay := chatDebounceDelay(m.cfg); delay > 0 {
+	if delay := chatDebounceDelay(m.cfg, loop.OtherConfig()); delay > 0 {
 		m.debouncer.Push(debounceKey, delay, item)
 		return
 	}

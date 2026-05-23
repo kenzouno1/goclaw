@@ -26,7 +26,7 @@ func TestInboundDebouncerMergesRapidText(t *testing.T) {
 
 func TestInboundDebouncerDisabledPassesThrough(t *testing.T) {
 	out := make(chan InboundMessage, 2)
-	d := NewInboundDebouncer(-1, func(msg InboundMessage) {
+	d := NewInboundDebouncer(0, func(msg InboundMessage) {
 		out <- msg
 	})
 
@@ -38,6 +38,48 @@ func TestInboundDebouncerDisabledPassesThrough(t *testing.T) {
 	}
 	if got := waitInbound(t, out); got.Content != "two" {
 		t.Fatalf("second content = %q", got.Content)
+	}
+}
+
+func TestInboundDebouncerDynamicDelay(t *testing.T) {
+	out := make(chan InboundMessage, 2)
+	d := NewInboundDebouncerFunc(func(msg InboundMessage) time.Duration {
+		if msg.AgentID == "instant" {
+			return 0
+		}
+		return 20 * time.Millisecond
+	}, func(msg InboundMessage) {
+		out <- msg
+	})
+	defer d.Stop()
+
+	d.Push(InboundMessage{Channel: "telegram", ChatID: "chat-1", SenderID: "user-1", AgentID: "instant", Content: "one"})
+	d.Push(InboundMessage{Channel: "telegram", ChatID: "chat-1", SenderID: "user-1", AgentID: "debounced", Content: "two"})
+	d.Push(InboundMessage{Channel: "telegram", ChatID: "chat-1", SenderID: "user-1", AgentID: "debounced", Content: "three"})
+
+	if got := waitInbound(t, out); got.Content != "one" {
+		t.Fatalf("instant content = %q", got.Content)
+	}
+	if got := waitInbound(t, out); got.Content != "two\nthree" {
+		t.Fatalf("debounced content = %q", got.Content)
+	}
+}
+
+func TestInboundDebouncerSeparatesAgents(t *testing.T) {
+	out := make(chan InboundMessage, 2)
+	d := NewInboundDebouncer(20*time.Millisecond, func(msg InboundMessage) {
+		out <- msg
+	})
+	defer d.Stop()
+
+	d.Push(InboundMessage{Channel: "telegram", ChatID: "chat-1", SenderID: "user-1", AgentID: "agent-a", Content: "a"})
+	d.Push(InboundMessage{Channel: "telegram", ChatID: "chat-1", SenderID: "user-1", AgentID: "agent-b", Content: "b"})
+
+	first := waitInbound(t, out)
+	second := waitInbound(t, out)
+	got := map[string]string{first.AgentID: first.Content, second.AgentID: second.Content}
+	if got["agent-a"] != "a" || got["agent-b"] != "b" {
+		t.Fatalf("agent buffers = %#v, want separate flushes", got)
 	}
 }
 

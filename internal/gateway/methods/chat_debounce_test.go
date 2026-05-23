@@ -71,18 +71,23 @@ func TestChatDebouncerDiscardDropsPendingBeforeCancel(t *testing.T) {
 	assertNoChatDebounceFlush(t, out)
 }
 
-func TestChatDebounceDelayDefaultAndDisabled(t *testing.T) {
-	if got := chatDebounceDelay(&config.Config{}); got != time.Second {
-		t.Fatalf("default debounce = %s, want 1s", got)
+func TestChatDebounceDelayGlobalAndAgentOverride(t *testing.T) {
+	if got := chatDebounceDelay(&config.Config{}, nil); got != 0 {
+		t.Fatalf("default debounce = %s, want disabled", got)
 	}
 	cfg := &config.Config{}
-	cfg.Gateway.InboundDebounceMs = -1
-	if got := chatDebounceDelay(cfg); got >= 0 {
-		t.Fatalf("disabled debounce = %s, want negative duration", got)
-	}
 	cfg.Gateway.InboundDebounceMs = 250
-	if got := chatDebounceDelay(cfg); got != 250*time.Millisecond {
-		t.Fatalf("custom debounce = %s, want 250ms", got)
+	if got := chatDebounceDelay(cfg, nil); got != 250*time.Millisecond {
+		t.Fatalf("global debounce = %s, want 250ms", got)
+	}
+	if got := chatDebounceDelay(cfg, []byte(`{"inbound_debounce_ms":0}`)); got != 0 {
+		t.Fatalf("agent disabled debounce = %s, want disabled", got)
+	}
+	if got := chatDebounceDelay(cfg, []byte(`{"inbound_debounce_ms":500}`)); got != 500*time.Millisecond {
+		t.Fatalf("agent custom debounce = %s, want 500ms", got)
+	}
+	if got := chatDebounceDelay(cfg, []byte(`{"other":true}`)); got != 250*time.Millisecond {
+		t.Fatalf("agent inherit debounce = %s, want 250ms", got)
 	}
 }
 

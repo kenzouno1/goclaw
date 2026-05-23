@@ -69,7 +69,7 @@ The consumer routes system messages based on sender ID prefixes:
 
 ### Inbound Debounce
 
-Normal channel messages pass through the shared inbound debouncer before agent execution. `gateway.inbound_debounce_ms` merges rapid text messages from the same `channel:chatID:senderID`; `0` uses the 1000ms default and `-1` disables debounce. Media messages bypass the wait window after flushing pending text, and command/control messages such as stop/reset and system escalations bypass debounce.
+Normal channel messages pass through the shared inbound debouncer before agent execution. `gateway.inbound_debounce_ms` merges rapid text messages from the same `channel:chatID:senderID:agentID`; `0` means no debounce and positive values set the wait window. Agents can override the global value with `other_config.inbound_debounce_ms`; unset inherits the global config. Media messages bypass the wait window after flushing pending text, and command/control messages such as stop/reset and system escalations bypass debounce.
 
 ---
 

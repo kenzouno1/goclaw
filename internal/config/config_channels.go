@@ -370,7 +370,7 @@ type GatewayConfig struct {
 	MaxMessageChars   int          `json:"max_message_chars,omitempty"`   // max user message characters (default 32000)
 	RateLimitRPM      int          `json:"rate_limit_rpm,omitempty"`      // rate limit: requests per minute per user (default 20, 0 = disabled)
 	InjectionAction   string       `json:"injection_action,omitempty"`    // prompt injection action: "log", "warn" (default), "block", "off"
-	InboundDebounceMs int          `json:"inbound_debounce_ms,omitempty"` // merge rapid channel/Web Chat messages from same sender/session (default 1000ms, -1 = disabled)
+	InboundDebounceMs int          `json:"inbound_debounce_ms,omitempty"` // merge rapid channel/Web Chat messages from same sender/session (0 = no wait)
 	Quota             *QuotaConfig `json:"quota,omitempty"`               // per-user/group request quotas
 	BlockReply              *bool        `json:"block_reply,omitempty"`                // deliver intermediate text during tool iterations (default false)
 	ToolStatus              *bool        `json:"tool_status,omitempty"`                // show tool name in streaming preview during tool execution (default true)
