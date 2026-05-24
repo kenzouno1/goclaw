@@ -77,6 +77,10 @@ func (c *Config) ApplySystemConfigs(configs map[string]string) {
 	// Skills
 	integer(SkillMaxUploadSizeSystemConfigKey, &c.Skills.MaxUploadSizeMB)
 	c.Skills.MaxUploadSizeMB = ClampSkillMaxUploadSizeMB(c.Skills.MaxUploadSizeMB)
+	boolean(SkillSlashCommandsEnabledSystemConfigKey, &c.Skills.SlashCommands.Enabled)
+	boolean(SkillSlashSuggestNotFoundSystemConfigKey, &c.Skills.SlashCommands.SuggestNotFound)
+	boolValue(SkillSlashPartialMatchingSystemConfigKey, &c.Skills.SlashCommands.PartialMatching)
+	str(SkillSlashCommandPrefixSystemConfigKey, &c.Skills.SlashCommands.Prefix)
 
 	// TTS
 	str("tts.provider", &c.Tts.Provider)

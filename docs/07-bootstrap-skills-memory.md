@@ -279,6 +279,30 @@ This decision is re-evaluated each time the system prompt is built, so newly hot
 
 ---
 
+## 9.5. Explicit Slash Skill Commands
+
+Users can bypass implicit skill matching by starting a prompt with a slash command:
+
+| Pattern | Behavior |
+|---------|----------|
+| `/<slug> prompt` | Activates the skill by slug and treats `prompt` as the skill input |
+| `/use <slug-or-name> prompt` | Activates the skill by slug or display name |
+| `/list-skills` | Shows available skills for the current agent context |
+| `/help <slug-or-name>` | Shows description and usage guidance for one skill |
+
+Slash detection runs during prompt construction after request context is scoped and before the skills section is built. A matched skill narrows the per-request `SkillFilter` to that skill and injects the full `SKILL.md` instructions into the system prompt for the current turn only. Normal matching remains unchanged for messages that do not start with the configured prefix, path-like strings such as `/home/user/file`, or unresolved commands without suggestions.
+
+Tenant settings live in `system_configs`:
+
+| Key | Default | Behavior |
+|-----|---------|----------|
+| `skills.slash_commands.enabled` | `true` | Enable slash command detection |
+| `skills.slash_commands.suggest_not_found` | `true` | Suggest similar skills for unknown commands |
+| `skills.slash_commands.partial_matching` | `false` | Allow unique prefixes such as `/frontend` |
+| `skills.slash_commands.prefix` | `/` | Single-character command prefix |
+
+---
+
 ## 10. Skills -- BM25 Search
 
 An in-memory BM25 index provides keyword-based skill search. The index is lazily rebuilt whenever the skill version changes.

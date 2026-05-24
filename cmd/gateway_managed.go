@@ -209,6 +209,7 @@ func wireExtras(
 		ToolPolicy:             toolPE,
 		Skills:                 skillsLoader,
 		SkillAccessStore:       skillAccessStore,
+		SkillSlashCommands:     appCfg.Skills.SlashCommands,
 		HasMemory:              hasMemory,
 		TraceCollector:         traceCollector,
 		EnsureUserProfile:      ensureUserProfile,

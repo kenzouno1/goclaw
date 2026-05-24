@@ -29,6 +29,11 @@ How skills access Python, Node.js, and system tools inside Docker containers and
 └─────────────────────────────────────────────────────────┘
 ```
 
+Explicit skill activation is handled before runtime execution. When a user starts
+their prompt with `/<skill-slug>` or `/use <skill name>`, the gateway resolves
+the skill, injects its `SKILL.md` into the current turn, and then normal runtime
+rules apply to any scripts or package dependencies that skill uses.
+
 ---
 
 ## 2. Pre-installed Packages (Option A)

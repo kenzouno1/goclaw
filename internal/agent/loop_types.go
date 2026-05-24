@@ -122,11 +122,12 @@ type Loop struct {
 	summarizeMu sync.Map // sessionKey → *sync.Mutex
 
 	// Bootstrap/persona context (loaded at startup, injected into system prompt)
-	ownerIDs       []string
-	skillsLoader   *skills.Loader
-	skillAllowList []string // nil = all, [] = none, ["x","y"] = filter
-	hasMemory      bool
-	contextFiles   []bootstrap.ContextFile
+	ownerIDs           []string
+	skillsLoader       *skills.Loader
+	skillAllowList     []string // nil = all, [] = none, ["x","y"] = filter
+	skillSlashCommands config.SkillSlashCommandConfig
+	hasMemory          bool
+	contextFiles       []bootstrap.ContextFile
 
 	// Per-user profile + file seeding + dynamic context loading
 	ensureUserProfile EnsureUserProfileFunc // create/resolve user profile + workspace
@@ -185,6 +186,7 @@ type Loop struct {
 	// Tenant-specific allowed paths beyond workspace (from system_configs['allowed_paths']).
 	// Filesystem tools (read_file, write_file, edit, list_files) check these at execution time.
 	tenantAllowedPaths []string
+	systemConfigs      store.SystemConfigStore
 
 	// Per-tenant disabled tools (tool name → true means excluded from LLM)
 	disabledTools map[string]bool
@@ -330,11 +332,12 @@ type LoopConfig struct {
 	OnEvent         func(AgentEvent)
 
 	// Bootstrap/persona context
-	OwnerIDs       []string
-	SkillsLoader   *skills.Loader
-	SkillAllowList []string // nil = all, [] = none, ["x","y"] = filter
-	HasMemory      bool
-	ContextFiles   []bootstrap.ContextFile
+	OwnerIDs           []string
+	SkillsLoader       *skills.Loader
+	SkillAllowList     []string // nil = all, [] = none, ["x","y"] = filter
+	SkillSlashCommands config.SkillSlashCommandConfig
+	HasMemory          bool
+	ContextFiles       []bootstrap.ContextFile
 
 	// Compaction config
 	CompactionCfg *config.CompactionConfig
@@ -383,6 +386,7 @@ type LoopConfig struct {
 
 	// Tenant-specific allowed paths beyond workspace (from system_configs['allowed_paths']).
 	TenantAllowedPaths []string
+	SystemConfigs      store.SystemConfigStore
 
 	// Per-tenant disabled tools (tool name → true means excluded)
 	DisabledTools map[string]bool
@@ -530,6 +534,7 @@ func NewLoop(cfg LoopConfig) *Loop {
 		ownerIDs:               cfg.OwnerIDs,
 		skillsLoader:           cfg.SkillsLoader,
 		skillAllowList:         cfg.SkillAllowList,
+		skillSlashCommands:     cfg.SkillSlashCommands,
 		hasMemory:              cfg.HasMemory,
 		contextFiles:           cfg.ContextFiles,
 		defaultTimezone:        cfg.DefaultTimezone,
@@ -553,6 +558,7 @@ func NewLoop(cfg LoopConfig) *Loop {
 		builtinToolSettings:    cfg.BuiltinToolSettings,
 		tenantToolSettings:     cfg.TenantToolSettings,
 		tenantAllowedPaths:     cfg.TenantAllowedPaths,
+		systemConfigs:          cfg.SystemConfigs,
 		disabledTools:          cfg.DisabledTools,
 		reasoningConfig:        cfg.ReasoningConfig,
 		promptMode:             cfg.PromptMode,

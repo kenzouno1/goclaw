@@ -85,7 +85,8 @@ type ResolverDeps struct {
 	MCPGrantChecker mcpbridge.GrantChecker
 
 	// Skill access store — for per-agent skill visibility filtering
-	SkillAccessStore store.SkillAccessStore
+	SkillAccessStore   store.SkillAccessStore
+	SkillSlashCommands config.SkillSlashCommandConfig
 
 	// Config permission store for group file writer checks
 	ConfigPermStore store.ConfigPermissionStore
@@ -491,6 +492,7 @@ func NewManagedResolver(deps ResolverDeps) ResolverFunc {
 			AgentToolPolicy:        agentToolPolicyForTeam(agentToolPolicyWithWorkspace(agentToolPolicyWithMCP(ag.ParseToolsConfig(), hasMCPTools), hasTeam), isTeamLead),
 			SkillsLoader:           deps.Skills,
 			SkillAllowList:         skillAllowList,
+			SkillSlashCommands:     deps.SkillSlashCommands,
 			HasMemory:              hasMemory,
 			ContextFiles:           contextFiles,
 			EnsureUserProfile:      deps.EnsureUserProfile,
@@ -511,6 +513,7 @@ func NewManagedResolver(deps ResolverDeps) ResolverFunc {
 			BuiltinToolSettings:    builtinSettings,
 			TenantToolSettings:     tenantToolSettings,
 			TenantAllowedPaths:     tenantAllowedPaths,
+			SystemConfigs:          deps.SystemConfigs,
 			DisabledTools:          disabledTools,
 			ReasoningConfig:        store.ResolveEffectiveReasoningConfig(providerReasoningDefaults, ag.ParseReasoningConfig()),
 			PromptMode:             PromptMode(ag.ParsePromptMode()),

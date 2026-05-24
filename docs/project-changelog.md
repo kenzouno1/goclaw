@@ -6,6 +6,17 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-24
 
+### Slash skill commands
+
+**Features**
+
+- Added explicit slash skill activation for `/<slug>`, `/use <slug-or-name>`, `/list-skills`, and `/help <slug-or-name>`.
+- Added tenant settings for slash command enablement, similar-skill suggestions, partial matching, and custom prefix.
+
+**Tests**
+
+- Added backend coverage for parser false positives, exact/partial skill resolution, suggestions, help/list commands, and config overlays.
+
 ### Configurable skill upload limits
 
 **Features**

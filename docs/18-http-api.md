@@ -337,6 +337,12 @@ tenant `system_configs["skills.max_upload_size_mb"]`, then `SKILL.md` frontmatte
 `GOCLAW_SKILLS_MAX_UPLOAD_SIZE_MB`, then the default 20 MB. Values are clamped
 to 1-500 MB.
 
+Skill slash-command behavior is configured through tenant `system_configs`:
+`skills.slash_commands.enabled`, `skills.slash_commands.suggest_not_found`,
+`skills.slash_commands.partial_matching`, and `skills.slash_commands.prefix`.
+The default prefix is `/`; supported prompt forms are `/<slug> prompt`,
+`/use <slug-or-name> prompt`, `/list-skills`, and `/help <slug-or-name>`.
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/v1/skills/{id}/grants/agent` | Grant skill to agent |
