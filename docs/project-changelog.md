@@ -6,6 +6,12 @@ Significant changes, features, and fixes in reverse chronological order.
 
 ## 2026-05-24
 
+### Browser cookie sync and config UI
+
+**Features**
+
+- Added scoped browser cookie sync API, encrypted cookie store, browser runtime cookie application, dashboard browser settings, and a selected-cookie Chrome extension prototype.
+
 ### Cron SecureCLI credential context
 
 **Fixes**

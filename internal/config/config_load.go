@@ -97,8 +97,9 @@ func Default() *Config {
 		},
 		Tools: ToolsConfig{
 			Browser: BrowserToolConfig{
-				Enabled:  true,
-				Headless: true,
+				Enabled:           true,
+				Headless:          true,
+				CookieSyncEnabled: true,
 			},
 			ExecApproval: ExecApprovalCfg{
 				Security: "full",

@@ -1844,3 +1844,36 @@ CREATE TABLE IF NOT EXISTS workstation_activity (
 CREATE INDEX IF NOT EXISTS idx_ws_activity_ws_time     ON workstation_activity(workstation_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ws_activity_tenant_time ON workstation_activity(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ws_activity_retention   ON workstation_activity(created_at);
+
+-- ============================================================
+-- Table: browser_cookies (migration 000069)
+-- User-selected cookies for server-side browser contexts.
+-- Values are AES-256-GCM ciphertext. Scope is tenant + user + agent.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS browser_cookies (
+    id              TEXT NOT NULL PRIMARY KEY,
+    tenant_id       TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         VARCHAR(255) NOT NULL,
+    agent_id        VARCHAR(255) NOT NULL,
+    domain          TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    path            TEXT NOT NULL DEFAULT '/',
+    encrypted_value TEXT NOT NULL,
+    secure          INTEGER NOT NULL DEFAULT 0,
+    http_only       INTEGER NOT NULL DEFAULT 0,
+    same_site       VARCHAR(32) NOT NULL DEFAULT '',
+    expires_at      TEXT,
+    source          VARCHAR(64) NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (TRIM(domain) <> ''),
+    CHECK (TRIM(name) <> ''),
+    CHECK (TRIM(path) <> '')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_browser_cookies_scope_unique
+    ON browser_cookies (tenant_id, user_id, agent_id, domain, path, name);
+CREATE INDEX IF NOT EXISTS idx_browser_cookies_scope_domain
+    ON browser_cookies (tenant_id, user_id, agent_id, domain);
+CREATE INDEX IF NOT EXISTS idx_browser_cookies_expires_at
+    ON browser_cookies (expires_at);

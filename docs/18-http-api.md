@@ -38,6 +38,39 @@ API keys are hashed with SHA-256 before lookup — the raw key is never stored. 
 
 ---
 
+## Browser Cookie Sync
+
+Selected-cookie sync stores user-approved browser cookies for server-side browser automation. Endpoints require operator auth and `X-GoClaw-User-Id`; the request body cannot set `tenant_id` or `user_id`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/browser/cookies/sync` | Store selected cookies for one `agent_id` |
+| `GET` | `/v1/browser/cookies?agent_id=...` | List synced cookie metadata; values are redacted |
+| `DELETE` | `/v1/browser/cookies?agent_id=...&domain=...&name=...` | Delete scoped synced cookies |
+
+Example sync request:
+
+```json
+{
+  "agent_id": "default",
+  "source": "chrome-selected-cookie-sync",
+  "cookies": [{
+    "domain": ".example.com",
+    "name": "session",
+    "path": "/",
+    "value": "cookie-value",
+    "secure": true,
+    "httpOnly": true,
+    "sameSite": "lax",
+    "expirationDate": 1770000000
+  }]
+}
+```
+
+See [Browser Cookie Sync Threat Model](browser-cookie-sync-threat-model.md) for isolation and encryption details.
+
+---
+
 ## 2. Chat Completions
 
 OpenAI-compatible chat API for programmatic access to agents.

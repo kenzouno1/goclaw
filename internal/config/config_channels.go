@@ -435,6 +435,7 @@ type BrowserToolConfig struct {
 	ActionTimeoutMs int    `json:"action_timeout_ms,omitempty"` // per-action timeout in ms (default 30000)
 	IdleTimeoutMs   int    `json:"idle_timeout_ms,omitempty"`   // idle page auto-close in ms (default 600000, 0=disabled)
 	MaxPages        int    `json:"max_pages,omitempty"`         // max open pages per tenant (default 5)
+	CookieSyncEnabled bool `json:"cookie_sync_enabled"` // apply selected synced cookies to scoped browser sessions
 }
 
 // ToolPolicySpec defines a tool policy at any level (global, per-agent, per-provider).

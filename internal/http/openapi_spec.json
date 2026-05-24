@@ -26,6 +26,7 @@
     { "name": "MCP Servers", "description": "MCP server configuration and grants" },
     { "name": "Custom Tools", "description": "Custom tool definitions" },
     { "name": "Built-in Tools", "description": "Built-in tool configuration" },
+    { "name": "Browser", "description": "Browser automation cookie sync" },
     { "name": "Memory", "description": "Agent memory (pgvector) management" },
     { "name": "Knowledge Graph", "description": "Entity knowledge graph" },
     { "name": "Channels", "description": "Channel instance management" },
@@ -60,6 +61,90 @@
               }
             }
           }
+        }
+      }
+    },
+    "/v1/browser/cookies/sync": {
+      "post": {
+        "tags": ["Browser"],
+        "summary": "Sync selected browser cookies",
+        "description": "Stores explicitly selected cookies for the authenticated user and one agent. Cookie values are encrypted at rest and are never returned by list APIs.",
+        "parameters": [
+          { "name": "X-GoClaw-User-Id", "in": "header", "required": true, "schema": { "type": "string" }, "description": "Authenticated external user ID for cookie scope" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["agent_id", "cookies"],
+                "properties": {
+                  "agent_id": { "type": "string" },
+                  "source": { "type": "string", "example": "chrome-selected-cookie-sync" },
+                  "cookies": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "required": ["name", "value"],
+                      "properties": {
+                        "domain": { "type": "string", "example": ".example.com" },
+                        "url": { "type": "string", "example": "https://example.com/app" },
+                        "name": { "type": "string" },
+                        "path": { "type": "string", "example": "/" },
+                        "value": { "type": "string" },
+                        "secure": { "type": "boolean" },
+                        "httpOnly": { "type": "boolean" },
+                        "sameSite": { "type": "string" },
+                        "expiresAt": { "type": "string", "format": "date-time" },
+                        "expirationDate": { "type": "number", "description": "Unix seconds as returned by chrome.cookies" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Cookies synced", "content": { "application/json": { "schema": { "type": "object", "properties": { "synced": { "type": "integer" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "503": { "description": "Cookie encryption is not configured" }
+        }
+      }
+    },
+    "/v1/browser/cookies": {
+      "get": {
+        "tags": ["Browser"],
+        "summary": "List synced browser cookie metadata",
+        "description": "Lists metadata for cookies scoped to the authenticated user and requested agent. Cookie values are redacted.",
+        "parameters": [
+          { "name": "agent_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "domain", "in": "query", "schema": { "type": "string" } },
+          { "name": "name", "in": "query", "schema": { "type": "string" } },
+          { "name": "path", "in": "query", "schema": { "type": "string" } },
+          { "name": "X-GoClaw-User-Id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Cookie metadata", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "type": "object", "properties": { "domain": { "type": "string" }, "name": { "type": "string" }, "path": { "type": "string" }, "secure": { "type": "boolean" }, "httpOnly": { "type": "boolean" }, "sameSite": { "type": "string" }, "expiresAt": { "type": "string", "format": "date-time" }, "source": { "type": "string" }, "updatedAt": { "type": "string", "format": "date-time" } } } } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "503": { "description": "Cookie encryption is not configured" }
+        }
+      },
+      "delete": {
+        "tags": ["Browser"],
+        "summary": "Delete synced browser cookies",
+        "parameters": [
+          { "name": "agent_id", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "domain", "in": "query", "schema": { "type": "string" } },
+          { "name": "name", "in": "query", "schema": { "type": "string" } },
+          { "name": "path", "in": "query", "schema": { "type": "string" } },
+          { "name": "X-GoClaw-User-Id", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Cookies deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "deleted": { "type": "integer" } } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" }
         }
       }
     },

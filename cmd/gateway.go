@@ -172,6 +172,9 @@ func runGateway() {
 	}
 
 	pgStores, traceCollector, snapshotWorker := setupStoresAndTracing(cfg, dataDir, msgBus)
+	if browserMgr != nil && pgStores != nil && pgStores.BrowserCookies != nil && cfg.Tools.Browser.CookieSyncEnabled {
+		browserMgr.SetCookieProvider(newStoreBrowserCookieProvider(pgStores.BrowserCookies))
+	}
 
 	// Recover from crashes: flip ghost 'summoning' rows to 'summon_failed'.
 	// Summon goroutines don't survive process restart; stale DB rows would trap the UI.

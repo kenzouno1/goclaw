@@ -77,6 +77,12 @@ func init() {
 		MsgCannotCancel:          "Agent 未处于召唤状态",
 		MsgInvalidPath:           "路径无效",
 
+		// Browser cookies
+		MsgBrowserCookieTooMany:            "单次同步请求中的浏览器 Cookie 过多",
+		MsgInvalidCookieURL:                "Cookie URL 无效",
+		MsgBrowserCookieValueTooLarge:      "Cookie 值过大",
+		MsgBrowserCookieEncryptionRequired: "尚未配置浏览器 Cookie 加密",
+
 		// Tenant backup / restore
 		MsgRestoreNewModeRejectsTenantID: "mode=new 会创建新租户；请传 tenant_slug（而非 tenant_id）作为新租户的 slug",
 

@@ -78,6 +78,12 @@ const (
 	MsgCannotCancel          = "error.cannot_cancel_summon"    // "agent is not being summoned"
 	MsgInvalidPath           = "error.invalid_path"            // "invalid path"
 
+	// --- Browser cookies ---
+	MsgBrowserCookieTooMany            = "error.browser_cookie_too_many"            // "too many browser cookies in one sync request"
+	MsgInvalidCookieURL                = "error.invalid_cookie_url"                 // "invalid cookie URL"
+	MsgBrowserCookieValueTooLarge      = "error.browser_cookie_value_too_large"     // "cookie value too large"
+	MsgBrowserCookieEncryptionRequired = "error.browser_cookie_encryption_required" // "browser cookie encryption is not configured"
+
 	// --- Tenant backup / restore ---
 	MsgRestoreNewModeRejectsTenantID = "error.restore_new_mode_rejects_tenant_id" // "mode=new uses tenant_slug; tenant_id is not accepted"
 

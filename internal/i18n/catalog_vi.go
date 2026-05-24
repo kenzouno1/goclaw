@@ -77,6 +77,12 @@ func init() {
 		MsgCannotCancel:          "agent không trong trạng thái đang triệu hồi",
 		MsgInvalidPath:           "đường dẫn không hợp lệ",
 
+		// Browser cookies
+		MsgBrowserCookieTooMany:            "quá nhiều cookie trình duyệt trong một yêu cầu đồng bộ",
+		MsgInvalidCookieURL:                "URL cookie không hợp lệ",
+		MsgBrowserCookieValueTooLarge:      "giá trị cookie quá lớn",
+		MsgBrowserCookieEncryptionRequired: "chưa cấu hình mã hoá cookie trình duyệt",
+
 		// Tenant backup / restore
 		MsgRestoreNewModeRejectsTenantID: "mode=new tạo tenant mới; dùng tenant_slug (không phải tenant_id) làm slug cho tenant mới",
 

@@ -77,6 +77,12 @@ func init() {
 		MsgCannotCancel:          "agent is not being summoned",
 		MsgInvalidPath:           "invalid path",
 
+		// Browser cookies
+		MsgBrowserCookieTooMany:            "too many browser cookies in one sync request",
+		MsgInvalidCookieURL:                "invalid cookie URL",
+		MsgBrowserCookieValueTooLarge:      "cookie value too large",
+		MsgBrowserCookieEncryptionRequired: "browser cookie encryption is not configured",
+
 		// Tenant backup / restore
 		MsgRestoreNewModeRejectsTenantID: "mode=new creates a fresh tenant; pass tenant_slug (not tenant_id) as the new tenant's target slug",
 

@@ -515,6 +515,11 @@ func (s *Server) SetSecureCLIGrantHandler(h *httpapi.SecureCLIGrantHandler) {
 	s.handlers = append(s.handlers, h)
 }
 
+// SetBrowserCookiesHandler sets the selected browser-cookie sync handler.
+func (s *Server) SetBrowserCookiesHandler(h *httpapi.BrowserCookiesHandler) {
+	s.handlers = append(s.handlers, h)
+}
+
 // SetPackagesHandler sets the runtime package management handler.
 func (s *Server) SetPackagesHandler(h *httpapi.PackagesHandler) {
 	s.handlers = append(s.handlers, h)

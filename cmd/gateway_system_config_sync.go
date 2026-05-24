@@ -118,6 +118,13 @@ func seedConfigForContext(ctx context.Context, sc store.SystemConfigStore, cfg *
 	set("tools.profile", cfg.Tools.Profile)
 	setInt("tools.rate_limit_per_hour", cfg.Tools.RateLimitPerHour)
 	setBool("tools.scrub_credentials", cfg.Tools.ScrubCredentials)
+	set("tools.browser.enabled", fmt.Sprintf("%t", cfg.Tools.Browser.Enabled))
+	set("tools.browser.headless", fmt.Sprintf("%t", cfg.Tools.Browser.Headless))
+	set("tools.browser.remote_url", cfg.Tools.Browser.RemoteURL)
+	setInt("tools.browser.action_timeout_ms", cfg.Tools.Browser.ActionTimeoutMs)
+	setIntAllowZero("tools.browser.idle_timeout_ms", cfg.Tools.Browser.IdleTimeoutMs)
+	setInt("tools.browser.max_pages", cfg.Tools.Browser.MaxPages)
+	set("tools.browser.cookie_sync_enabled", fmt.Sprintf("%t", cfg.Tools.Browser.CookieSyncEnabled))
 
 	// TTS
 	set("tts.provider", cfg.Tts.Provider)

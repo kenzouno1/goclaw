@@ -96,6 +96,9 @@ func (d *gatewayDeps) wireHTTPHandlersOnServer(
 	if h.secureCLIGrant != nil {
 		d.server.SetSecureCLIGrantHandler(h.secureCLIGrant)
 	}
+	if d.pgStores != nil && d.pgStores.BrowserCookies != nil {
+		d.server.SetBrowserCookiesHandler(httpapi.NewBrowserCookiesHandler(d.pgStores.BrowserCookies))
+	}
 
 	// Activity audit log API
 	if d.pgStores.Activity != nil {

@@ -16,7 +16,7 @@ var schemaSQL string
 
 // SchemaVersion is the current SQLite schema version.
 // Bump this when adding new migration steps below.
-const SchemaVersion = 38
+const SchemaVersion = 39
 
 // migrations maps version → SQL to apply when upgrading FROM that version.
 // schema.sql always represents the LATEST full schema (for fresh DBs).
@@ -737,6 +737,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_bitrix_portals_tenant_name
     ON bitrix_portals (tenant_id, name);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bitrix_portals_domain
     ON bitrix_portals (LOWER(TRIM(domain)));`,
+
+	// Version 38 → 39: selected browser cookie sync.
+	38: `CREATE TABLE IF NOT EXISTS browser_cookies (
+    id              TEXT NOT NULL PRIMARY KEY,
+    tenant_id       TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id         VARCHAR(255) NOT NULL,
+    agent_id        VARCHAR(255) NOT NULL,
+    domain          TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    path            TEXT NOT NULL DEFAULT '/',
+    encrypted_value TEXT NOT NULL,
+    secure          INTEGER NOT NULL DEFAULT 0,
+    http_only       INTEGER NOT NULL DEFAULT 0,
+    same_site       VARCHAR(32) NOT NULL DEFAULT '',
+    expires_at      TEXT,
+    source          VARCHAR(64) NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    CHECK (TRIM(domain) <> ''),
+    CHECK (TRIM(name) <> ''),
+    CHECK (TRIM(path) <> '')
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_browser_cookies_scope_unique
+    ON browser_cookies (tenant_id, user_id, agent_id, domain, path, name);
+CREATE INDEX IF NOT EXISTS idx_browser_cookies_scope_domain
+    ON browser_cookies (tenant_id, user_id, agent_id, domain);
+CREATE INDEX IF NOT EXISTS idx_browser_cookies_expires_at
+    ON browser_cookies (expires_at);`,
 }
 
 // addHooksTables is the SQLite incremental migration for schema v19 → v20.

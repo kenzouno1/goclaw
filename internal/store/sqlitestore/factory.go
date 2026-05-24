@@ -60,6 +60,7 @@ func NewSQLiteStores(cfg store.StoreConfig) (*store.Stores, error) {
 		Activity:         NewSQLiteActivityStore(db),
 		APIKeys:          NewSQLiteAPIKeyStore(db),
 		ConfigPermissions: NewSQLiteConfigPermissionStore(db),
+		BrowserCookies:   NewSQLiteBrowserCookieStore(db, cfg.EncryptionKey),
 		Memory:         NewSQLiteMemoryStore(db),
 		SubagentTasks:   NewSQLiteSubagentTaskStore(db),
 		AgentLinks:      NewSQLiteAgentLinkStore(db),
