@@ -41,13 +41,15 @@ func (c *Channel) Send(ctx context.Context, msg bus.OutboundMessage) error {
 	if msg.ChatID == "" {
 		return fmt.Errorf("element: empty chat_id (room_id) for send")
 	}
+
+	roomID := id.RoomID(msg.ChatID)
+	// Clear typing indicator before returning — must run for NO_REPLY too,
+	// otherwise the indicator hangs until Matrix's 30s auto-expire.
+	go c.signalTyping(roomID, false)
+
 	if msg.Content == "" {
 		return nil // NO_REPLY semantics
 	}
-
-	roomID := id.RoomID(msg.ChatID)
-	// Clear typing indicator before sending the actual reply.
-	go c.signalTyping(roomID, false)
 
 	for _, chunk := range channels.ChunkMarkdown(msg.Content, maxMessageLen) {
 		if err := c.sendChunk(ctx, roomID, chunk); err != nil {
