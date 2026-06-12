@@ -16,6 +16,7 @@ import (
 	"github.com/nextlevelbuilder/goclaw/internal/providerresolve"
 	"github.com/nextlevelbuilder/goclaw/internal/providers"
 	"github.com/nextlevelbuilder/goclaw/internal/store"
+	usagecaps "github.com/nextlevelbuilder/goclaw/internal/usage/caps"
 )
 
 // reloadStartTimeout bounds how long Reload() will wait for a single channel's
@@ -61,17 +62,18 @@ func (w ChannelInstanceCredsWriter) UpdateCredentials(ctx context.Context, insta
 // InstanceLoader loads channel instances from the database and registers them with the Manager.
 // Follows a load-all-at-startup pattern with cache invalidation for reload.
 type InstanceLoader struct {
-	store              store.ChannelInstanceStore
-	agentStore         store.AgentStore
-	providerReg        *providers.Registry
-	pendingCompactCfg  *config.PendingCompactionConfig
-	factories          map[string]ChannelFactory
+	store               store.ChannelInstanceStore
+	agentStore          store.AgentStore
+	providerReg         *providers.Registry
+	pendingCompactCfg   *config.PendingCompactionConfig
+	usageCaps           *usagecaps.Service
+	factories           map[string]ChannelFactory
 	contextualFactories map[string]ContextualChannelFactory
-	manager            *Manager
-	msgBus             *bus.MessageBus
-	pairingSvc         store.PairingStore
-	mu                 sync.Mutex
-	loaded             map[string]struct{} // channel names managed by this loader
+	manager             *Manager
+	msgBus              *bus.MessageBus
+	pairingSvc          store.PairingStore
+	mu                  sync.Mutex
+	loaded              map[string]struct{} // channel names managed by this loader
 }
 
 // NewInstanceLoader creates a new InstanceLoader.
@@ -104,6 +106,10 @@ func (l *InstanceLoader) SetProviderRegistry(reg *providers.Registry) {
 // Must be called before LoadAll/Reload.
 func (l *InstanceLoader) SetPendingCompactionConfig(cfg *config.PendingCompactionConfig) {
 	l.pendingCompactCfg = cfg
+}
+
+func (l *InstanceLoader) SetUsageCapService(s *usagecaps.Service) {
+	l.usageCaps = s
 }
 
 // RegisterFactory registers a factory for a channel type (e.g., "telegram", "discord").
@@ -356,8 +362,9 @@ func (l *InstanceLoader) finishLoadInstance(instCtx context.Context, inst store.
 
 		if p != nil && model != "" {
 			cc := &CompactionConfig{
-				Provider: p,
-				Model:    model,
+				Provider:  p,
+				Model:     model,
+				UsageCaps: l.usageCaps,
 			}
 			if l.pendingCompactCfg != nil {
 				cc.Threshold = l.pendingCompactCfg.Threshold
