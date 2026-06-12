@@ -1,0 +1,66 @@
+# GoClaw — single merged compose for Coolify (build-from-git + Postgres pgvector).
+# Place this file at the ROOT of your goclaw fork, on branch `main`.
+# In Coolify: Build Pack = Docker Compose, Compose Location = /docker-compose.coolify.yaml
+#
+# Required env vars (set in Coolify → Environment Variables):
+#   GOCLAW_GATEWAY_TOKEN, GOCLAW_ENCRYPTION_KEY, POSTGRES_PASSWORD
+# Optional: POSTGRES_USER (default goclaw), POSTGRES_DB (default goclaw)
+ 
+services:
+  goclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        ENABLE_OTEL: "false"
+        ENABLE_EMBEDUI: "true"      # serve web dashboard on the same port
+        ENABLE_PYTHON: "true"
+        ENABLE_FULL_SKILLS: "false"
+        VERSION: "main"
+    environment:
+      # Coolify magic var: routes https://goclaw.redsand.vn -> container port 18790.
+      # Set the actual domain in Coolify UI; leave value as "/" (path root).
+      - SERVICE_FQDN_GOCLAW_18790=/
+      - GOCLAW_HOST=0.0.0.0
+      - GOCLAW_PORT=18790
+      - GOCLAW_CONFIG=/app/data/config.json
+      - GOCLAW_SKILLS_DIR=/app/data/skills
+      - GOCLAW_GATEWAY_TOKEN=${GOCLAW_GATEWAY_TOKEN}
+      - GOCLAW_ENCRYPTION_KEY=${GOCLAW_ENCRYPTION_KEY}
+      - GOCLAW_POSTGRES_DSN=postgres://${POSTGRES_USER:-goclaw}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-goclaw}?sslmode=disable
+    expose:
+      - "18790"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - goclaw-data:/app/data
+      - goclaw-workspace:/app/workspace
+      - goclaw-skills:/app/skills
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    restart: unless-stopped
+ 
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-goclaw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-goclaw}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-goclaw} -d ${POSTGRES_DB:-goclaw}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+ 
+volumes:
+  goclaw-data:
+  goclaw-workspace:
+  goclaw-skills:
+  postgres-data:
